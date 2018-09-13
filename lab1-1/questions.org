@@ -1,0 +1,12 @@
+* Hur ser högdagrarna ut i 1a? Varför?
+  De hade skarpa kanter eftersom vi hade hög ljusnivå.
+
+* Hur allokerar man en tom textur?
+  Man skapar en fbo
+
+* Hur många pass körde du lågpassfiltret i 1c och 1d?
+  2000
+
+* Bör trunkeringen göras i egen shader eller som del av en shader som gör något mer? Varför?
+  Man kan klara sig med färre draw calls om man kör det som en del av en
+  shader.
