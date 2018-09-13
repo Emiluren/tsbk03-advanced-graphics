@@ -67,7 +67,7 @@ Model* squareModel;
 //----------------------Globals-------------------------------------------------
 Point3D cam, point;
 Model *model1;
-FBOstruct *fbo1, *fbo2, *original_fbo;
+FBOstruct *fbo1, *fbo2;
 GLuint phongshader = 0, plaintextureshader = 0, lpshader = 0, blendshader = 0, stepshader = 0;
 
 //-------------------------------------------------------------------------------------
@@ -92,7 +92,6 @@ void init(void)
 
     printError("init shader");
 
-    original_fbo = initFBO(W, H, 0);
     fbo1 = initFBO(W, H, 0);
     fbo2 = initFBO(W, H, 0);
 
@@ -145,7 +144,8 @@ void display(void)
     //  a new frame; due to the idle()-function below, this
     //  function will get called several times per second
 
-    useFBO(original_fbo, 0L, 0L);
+    // render to fbo1!
+    useFBO(fbo1, 0L, 0L);
 
     // Clear framebuffer & zbuffer
     glClearColor(0.1, 0.1, 0.3, 0);
@@ -176,7 +176,7 @@ void display(void)
 
     glFlush(); // Can cause flickering on some systems. Can also be necessary to make drawing complete.
 
-    runfilter(stepshader, fbo2, original_fbo, 0L);
+    runfilter(stepshader, fbo2, fbo1, 0L);
 
     glUseProgram(lpshader);
     float offset = 1.0f / 512.0f;
@@ -190,13 +190,12 @@ void display(void)
     	runfilter(lpshader, fbo2, fbo1, 0L);
     }
 
-    useFBO(0L, fbo2, original_fbo);
+    useFBO(0L, fbo1, 0L);
     glClearColor(0.0, 0.0, 0.0, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Activate second shader program
-    glUseProgram(blendshader);
-    glUniform1i(glGetUniformLocation(blendshader, "texUnit2"), 1);
+    glUseProgram(plaintextureshader);
 
     glDisable(GL_CULL_FACE);
     glDisable(GL_DEPTH_TEST);
