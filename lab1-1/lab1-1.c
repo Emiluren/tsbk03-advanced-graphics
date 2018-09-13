@@ -52,12 +52,14 @@ GLfloat square[] = {
     -1,-1,0,
     -1,1, 0,
     1,1, 0,
-    1,-1, 0};
+    1,-1, 0
+};
 GLfloat squareTexCoord[] = {
     0, 0,
     0, 1,
     1, 1,
-    1, 0};
+    1, 0
+};
 GLuint squareIndices[] = {0, 1, 2, 0, 2, 3};
 
 Model* squareModel;
@@ -66,7 +68,7 @@ Model* squareModel;
 Point3D cam, point;
 Model *model1;
 FBOstruct *fbo1, *fbo2;
-GLuint phongshader = 0, plaintextureshader = 0;
+GLuint phongshader = 0, plaintextureshader = 0, lpshader = 0, blendshader = 0;
 
 //-------------------------------------------------------------------------------------
 
@@ -84,6 +86,8 @@ void init(void)
     // Load and compile shaders
     plaintextureshader = loadShaders("plaintextureshader.vert", "plaintextureshader.frag");  // puts texture on teapot
     phongshader = loadShaders("phong.vert", "phong.frag");  // renders with light (used for initial renderin of teapot)
+    lpshader = loadShaders("plaintextureshader.vert", "lowpass.frag");
+    blendshader = loadShaders("plaintextureshader.vert", "blend.frag");
 
     printError("init shader");
 
@@ -91,12 +95,13 @@ void init(void)
     fbo2 = initFBO(W, H, 0);
 
     // load the model
-//	model1 = LoadModelPlus("teapot.obj");
+    // model1 = LoadModelPlus("teapot.obj");
     model1 = LoadModelPlus("stanford-bunny.obj");
 
     squareModel = LoadDataToModel(
 	square, NULL, squareTexCoord, NULL,
-	squareIndices, 4, 6);
+	squareIndices, 4, 6
+    );
 
     cam = SetVector(0, 5, 15);
     point = SetVector(0, 1, 0);
@@ -104,6 +109,23 @@ void init(void)
     glutTimerFunc(5, &OnTimer, 0);
 
     zprInit(&viewMatrix, cam, point);
+}
+
+void runfilter(GLuint shader, FBOstruct *out, FBOstruct *in1, FBOstruct *in2)
+{
+    glUseProgram(shader);
+
+    // Many of these things would be more efficiently done once and for all
+    glDisable(GL_CULL_FACE);
+    glDisable(GL_DEPTH_TEST);
+    glUniform1i(glGetUniformLocation(shader, "texUnit"), 0);
+    glUniform1i(glGetUniformLocation(shader, "texUnit2"), 1);
+
+    useFBO(out, in1, in2);
+
+    DrawModel(squareModel, shader, "in_Position", NULL, "in_TexCoord");
+
+    glFlush();
 }
 
 void OnTimer(int value)
@@ -151,7 +173,17 @@ void display(void)
 
     // Done rendering the FBO! Set up for rendering on screen, using the result as texture!
 
-//	glFlush(); // Can cause flickering on some systems. Can also be necessary to make drawing complete.
+    glFlush(); // Can cause flickering on some systems. Can also be necessary to make drawing complete.
+
+    glUseProgram(lpshader);
+    float offset = 1.0f / 512.0f;
+    for (int i = 0; i < 1000; i++) {
+	glUniform2f(glGetUniformLocation(lpshader, "offset"), offset, 0);
+	runfilter(lpshader, fbo2, fbo1, 0L);
+	glUniform2f(glGetUniformLocation(lpshader, "offset"), 0, offset);
+    	runfilter(lpshader, fbo1, fbo2, 0L);
+    }
+
     useFBO(0L, fbo1, 0L);
     glClearColor(0.0, 0.0, 0.0, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
