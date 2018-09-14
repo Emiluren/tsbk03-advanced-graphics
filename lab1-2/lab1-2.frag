@@ -25,9 +25,13 @@ void main(void)
     float bs = (vbs.r + vbs.g + vbs.b) / 3;
     float bt = (vbt.r + vbt.g + vbt.b) / 3;
 
-    vec3 normal = normalize(out_Normal) + Ps*bs + Pt*bt;
+    vec3 normal = normalize(out_Normal);
+    mat3 mvt = mat3(Ps, Pt, normal);
+
+    vec3 tex_normal = normalize(vec3(bs, bt, 1) + mvt * normal);
+    light = mvt * light;
 
     // Simplified lighting calculation.
     // A full solution would include material, ambient, specular, light sources, multiply by texture.
-    out_Color = vec4( dot(normal, light)) * vec4(0.5, 0.5, 0.5, 1.0);
+    out_Color = vec4( dot(tex_normal, light)) * vec4(0.5, 0.5, 0.5, 1.0);
 }

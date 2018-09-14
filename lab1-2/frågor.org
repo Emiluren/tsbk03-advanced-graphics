@@ -1,0 +1,11 @@
+* Vilken bumpmappning tycker du är att föredra, vykoordinater eller texturkoordinater? Varför?
+Vår implementation blev i all fall lite enklare i vykoordinater.
+
+* Vad är skillnaden mellan att arbeta i vy- och texturkoordinater?
+Det ena utgår från ytan och det andra från kameran.
+
+* Vilken bumpmappning (2a eller 2b) är lämplig för normalmapping?
+För en normal map är normalerna lagrade i texturkoordinater eftersom man inte kan veta varje vy.
+
+* Blev Mvt rätt med mat3 i 2b?
+Ja
