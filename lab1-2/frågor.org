@@ -8,4 +8,4 @@ Det ena utgår från ytan och det andra från kameran.
 För en normal map är normalerna lagrade i texturkoordinater eftersom man inte kan veta varje vy.
 
 * Blev Mvt rätt med mat3 i 2b?
-Ja
+Nej, vi fick transponera

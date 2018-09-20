@@ -22,11 +22,11 @@ void main(void)
 
     vec4 vbs = dFdx(texture(texUnit, outTexCoord));
     vec4 vbt = dFdy(texture(texUnit, outTexCoord)); 
-    float bs = (vbs.r + vbs.g + vbs.b) / 3;
-    float bt = (vbt.r + vbt.g + vbt.b) / 3;
+    float bs = (vbs.r + vbs.g + vbs.b);
+    float bt = (vbt.r + vbt.g + vbt.b);
 
     vec3 normal = normalize(out_Normal);
-    mat3 mvt = mat3(Ps, Pt, normal);
+    mat3 mvt = transpose(mat3(Ps, Pt, normal));
 
     vec3 tex_normal = normalize(vec3(bs, bt, 1) + mvt * normal);
     light = mvt * light;
