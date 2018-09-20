@@ -12,20 +12,20 @@
 #include <stdlib.h>
 #ifdef __APPLE__
 // Mac
-	#include <OpenGL/gl3.h>
-	#include "MicroGlut.h"
+#include <OpenGL/gl3.h>
+#include "MicroGlut.h"
 //uses framework Cocoa
 #else
-	#ifdef WIN32
+#ifdef WIN32
 // MS
-		#include <stdio.h>
-		#include <GL/glew.h>
-		#include <GL/glut.h>
-	#else
+#include <stdio.h>
+#include <GL/glew.h>
+#include <GL/glut.h>
+#else
 // Linux
-		#include <GL/gl.h>
-		#include "MicroGlut.h" // #include <GL/glut.h>
-	#endif
+#include <GL/gl.h>
+#include "MicroGlut.h" // #include <GL/glut.h>
+#endif
 #endif
 
 #include "GL_utilities.h"
@@ -82,7 +82,7 @@ void BuildCylinder()
 	float g_vertstex[kMaxRow][kMaxCorners][2];
 
 	// sätter värden till alla vertexar i meshen
-	for (row = 0; row < kMaxRow; row++)
+	for (row = 0; row < kMaxRow; row++) {
 		for (corner = 0; corner < kMaxCorners; corner++)
 		{
 			g_vertsOrg[row][corner].x = row;
@@ -96,14 +96,15 @@ void BuildCylinder()
 			g_boneWeights[row][corner].x = (1-weight[row]);
 			g_boneWeights[row][corner].y = weight[row];
 			g_boneWeights[row][corner].z = 0.0;
-		};
+		}
+	}
 
 	// g_poly definerar mellan vilka vertexar som 
 	// trianglarna ska ritas
-	for (row = 0; row < kMaxRow-1; row++)
+	for (row = 0; row < kMaxRow-1; row++) {
 		for (corner = 0; corner < kMaxCorners; corner++)
 		{
-	// Quads built from two triangles
+			// Quads built from two triangles
 
 			if (corner < kMaxCorners-1) 
 			{
@@ -128,10 +129,11 @@ void BuildCylinder()
 				g_poly[cornerIndex * 2 + 1].v3 = cornerIndex + kMaxCorners;
 			}
 		}
+	}
 	
 	// lägger en kopia av originalmodellen i g_vertsRes & g_normalsRes
 
-	for (row = 0; row < kMaxRow; row++)
+	for (row = 0; row < kMaxRow; row++) {
 		for (corner = 0; corner < kMaxCorners; corner++)
 		{
 			g_vertsRes[row][corner] = g_vertsOrg[row][corner];
@@ -139,16 +141,17 @@ void BuildCylinder()
 			g_vertstex[row][corner][0]=(1-weight[row]);
 			g_vertstex[row][corner][1]=weight[row];
 		}
+	}
 	
 	// Build Model from cylinder data
 	cylinderModel = LoadDataToModel(
-			(GLfloat*) g_vertsRes,
-			(GLfloat*) g_normalsRes,
-			(GLfloat*) g_vertstex, // texCoords
-			(GLfloat*) g_vertstex, // colors
-			(GLuint*) g_poly, // indices
-			kMaxRow*kMaxCorners,
-			kMaxg_poly * 3);
+		(GLfloat*) g_vertsRes,
+		(GLfloat*) g_normalsRes,
+		(GLfloat*) g_vertstex, // texCoords
+		(GLfloat*) g_vertstex, // colors
+		(GLuint*) g_poly, // indices
+		kMaxRow*kMaxCorners,
+		kMaxg_poly * 3);
 }
 
 
@@ -181,6 +184,16 @@ void setupBones(void)
 	g_bones[1].rot = IdentityMatrix();
 }
 
+mat4 TByVec(vec3 pos) {
+	return T(pos.x, pos.y, pos.z);
+}
+
+mat4 MatScalarMult(mat4 m, GLfloat f) {
+	for (int i = 0; i < 16; i++) {
+		m.m[i] *= f;
+	}
+	return m;
+}
 
 ///////////////////////////////////////////////////////
 //		D E F O R M	C Y L I N D E R 
@@ -190,13 +203,22 @@ void DeformCylinder()
 {
 	// Point3D v1, v2;
 	int row, corner;
+
+	mat4 bone0_rest = TByVec(ScalarMult(g_bones[0].pos, -1));
+	mat4 bone1_rest = TByVec(ScalarMult(g_bones[1].pos, -1));
+
+	mat4 bone0_mat = Mult(Mult(TByVec(g_bones[0].pos), g_bones[0].rot), bone0_rest);
+	mat4 bone1_mat = Mult(Mult(TByVec(g_bones[1].pos), g_bones[1].rot), bone1_rest);
 	
 	// för samtliga vertexar 
 	for (row = 0; row < kMaxRow; row++)
 	{
 		for (corner = 0; corner < kMaxCorners; corner++)
 		{
-			g_vertsRes[row][corner] = g_vertsOrg[row][corner];
+			g_vertsRes[row][corner] = VectorAdd(
+				ScalarMult(MultVec3(bone0_mat, g_vertsOrg[row][corner]), weight[row]),
+				ScalarMult(MultVec3(bone1_mat, g_vertsOrg[row][corner]), 1 - weight[row])
+			);
 			
 			// ----=========	Uppgift 1: Hard skinning (stitching) i CPU ===========-----
 			// Deformera cylindern enligt det skelett som finns
@@ -327,10 +349,10 @@ void reshape(GLsizei w, GLsizei h)
     glViewport(0, 0, w, h);
     GLfloat ratio = (GLfloat) w / (GLfloat) h;
     projectionMatrix = perspective(90, ratio, 0.1, 1000);
- //   glUniformMatrix4fv(glGetUniformLocation(shader, "projMatrix"), 1, GL_TRUE, projectionMatrix);
+	//   glUniformMatrix4fv(glGetUniformLocation(shader, "projMatrix"), 1, GL_TRUE, projectionMatrix);
 	modelViewMatrix = lookAt(cam.x, cam.y, cam.z,
-							look.x, look.y, look.z, 
-							0,1,0);
+							 look.x, look.y, look.z, 
+							 0,1,0);
 }
 
 /////////////////////////////////////////
