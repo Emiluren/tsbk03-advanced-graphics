@@ -64,7 +64,7 @@ Point3D g_vertsRes[kMaxRow][kMaxCorners];
 Point3D g_normalsRes[kMaxRow][kMaxCorners];
 
 // vertex attributes sent to OpenGL
-Point3D g_boneWeights[kMaxRow][kMaxCorners];
+float g_boneWeights[kMaxRow][kMaxCorners];
 
 float weight[kMaxRow] = {0.0, 0.1, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 1.0, 1.0};
 
@@ -82,7 +82,8 @@ void BuildCylinder()
 	float g_vertstex[kMaxRow][kMaxCorners][2];
 
 	// sätter värden till alla vertexar i meshen
-	for (row = 0; row < kMaxRow; row++) {
+	for (row = 0; row < kMaxRow; row++)
+	{
 		for (corner = 0; corner < kMaxCorners; corner++)
 		{
 			g_vertsOrg[row][corner].x = row;
@@ -93,15 +94,14 @@ void BuildCylinder()
 			g_normalsOrg[row][corner].y = cos(corner * 2*Pi / kMaxCorners);
 			g_normalsOrg[row][corner].z = sin(corner * 2*Pi / kMaxCorners);
 
-			g_boneWeights[row][corner].x = (1-weight[row]);
-			g_boneWeights[row][corner].y = weight[row];
-			g_boneWeights[row][corner].z = 0.0;
+			g_boneWeights[row][corner] = weight[row];
 		}
 	}
 
 	// g_poly definerar mellan vilka vertexar som 
 	// trianglarna ska ritas
-	for (row = 0; row < kMaxRow-1; row++) {
+	for (row = 0; row < kMaxRow-1; row++)
+	{
 		for (corner = 0; corner < kMaxCorners; corner++)
 		{
 			// Quads built from two triangles
@@ -149,9 +149,25 @@ void BuildCylinder()
 		(GLfloat*) g_normalsRes,
 		(GLfloat*) g_vertstex, // texCoords
 		(GLfloat*) g_vertstex, // colors
+		//(GLfloat*) g_boneWeights,
 		(GLuint*) g_poly, // indices
 		kMaxRow*kMaxCorners,
 		kMaxg_poly * 3);
+
+	glBindVertexArray(cylinderModel->vao);
+	GLuint boneWeightBuffer;
+	glGenBuffers(1, &boneWeightBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, boneWeightBuffer);
+	glBufferData(GL_ARRAY_BUFFER, kMaxRow*kMaxCorners*sizeof(GLfloat), g_boneWeights, GL_STATIC_DRAW);
+
+	GLint loc = glGetAttribLocation(g_shader, "weight");
+	if (loc >= 0)
+	{
+		glVertexAttribPointer(loc, 1, GL_FLOAT, GL_FALSE, 0, 0); 
+		glEnableVertexAttribArray(loc);
+	}
+	else
+		ReportRerror("Bone weights", "weight");
 }
 
 
@@ -209,44 +225,12 @@ void DeformCylinder()
 
 	mat4 bone0_mat = Mult(Mult(TByVec(g_bones[0].pos), g_bones[0].rot), bone0_rest);
 	mat4 bone1_mat = Mult(Mult(TByVec(g_bones[1].pos), g_bones[1].rot), bone1_rest);
-	
-	// för samtliga vertexar 
-	for (row = 0; row < kMaxRow; row++)
-	{
-		for (corner = 0; corner < kMaxCorners; corner++)
-		{
-			g_vertsRes[row][corner] = VectorAdd(
-				ScalarMult(MultVec3(bone0_mat, g_vertsOrg[row][corner]), 1 - weight[row]),
-				ScalarMult(MultVec3(bone1_mat, g_vertsOrg[row][corner]), weight[row])
-			);
-			
-			// ----=========	Uppgift 1: Hard skinning (stitching) i CPU ===========-----
-			// Deformera cylindern enligt det skelett som finns
-			// i g_bones.
-			//
-			// Gör hard skinning.
-			//
-			// g_bones innehåller benen.
-			// g_vertsOrg innehåller ursprunglig vertexdata.
-			// g_vertsRes innehåller den vertexdata som skickas till OpenGL.
-			//
-			// row traverserar i cylinderns längdriktning,
-			// corner traverserar "runt" cylindern
-			
-			
-			// ---=========	Uppgift 2: Soft skinning i CPU ===========------
-			// Deformera cylindern enligt det skelett som finns
-			// i g_bones.
-			//
-			// Gör soft skinning.
-			//
-			// g_bones innehåller benen.
-			// g_boneWeights innehåller blendvikter för benen.
-			// g_vertsOrg innehåller ursprunglig vertexdata.
-			// g_vertsRes innehåller den vertexdata som skickas till OpenGL.
-			
-		}
-	}
+
+	GLuint bone0_location = glGetUniformLocation(g_shader, "bone0");
+	GLuint bone1_location = glGetUniformLocation(g_shader, "bone1");
+		
+	glUniformMatrix4fv(bone0_location, 1, GL_TRUE, bone0_mat.m);
+	glUniformMatrix4fv(bone1_location, 1, GL_TRUE, bone1_mat.m);
 }
 
 
@@ -298,17 +282,18 @@ void DrawCylinder()
 	// Ersätt DeformCylinder med en vertex shader som gör vad DeformCylinder gör.
 	// Begynnelsen till shaderkoden ligger i filen "shader.vert" ...
 	
+	// update cylinder vertices:
+	glBindVertexArray(cylinderModel->vao);
+	/* glBindBuffer(GL_ARRAY_BUFFER, cylinderModel->vb); */
+	/* glBufferData(GL_ARRAY_BUFFER, sizeof(Point3D)*kMaxRow*kMaxCorners, g_vertsRes, GL_DYNAMIC_DRAW); */
+
 	DeformCylinder();
 	
 	setBoneLocation();
 	setBoneRotation();
 	
-// update cylinder vertices:
-	glBindVertexArray(cylinderModel->vao);
-	glBindBuffer(GL_ARRAY_BUFFER, cylinderModel->vb);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Point3D)*kMaxRow*kMaxCorners, g_vertsRes, GL_DYNAMIC_DRAW);
-	
 	DrawModel(cylinderModel, g_shader, "in_Position", "in_Normal", "in_TexCoord");
+	//ReportRerror("Draw model", "jhdsjhdsa");
 }
 
 
@@ -372,6 +357,8 @@ int main(int argc, char **argv)
 	glutKeyboardFunc( keyboardFunc ); 
 	glutReshapeFunc(reshape);
 
+	g_shader = loadShaders("shader.vert" , "shader.frag");
+
 	// Set up depth buffer
 	glEnable(GL_DEPTH_TEST);
 
@@ -381,7 +368,6 @@ int main(int argc, char **argv)
 #endif
 	BuildCylinder();
 	setupBones();
-	g_shader = loadShaders("shader.vert" , "shader.frag");
 
 	glutMainLoop();
 	exit(0);
