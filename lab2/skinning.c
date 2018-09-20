@@ -66,7 +66,7 @@ Point3D g_normalsRes[kMaxRow][kMaxCorners];
 // vertex attributes sent to OpenGL
 Point3D g_boneWeights[kMaxRow][kMaxCorners];
 
-float weight[kMaxRow] = {0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+float weight[kMaxRow] = {0.0, 0.1, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 1.0, 1.0};
 
 Model *cylinderModel; // Collects all the above for drawing with glDrawElements
 
@@ -216,8 +216,8 @@ void DeformCylinder()
 		for (corner = 0; corner < kMaxCorners; corner++)
 		{
 			g_vertsRes[row][corner] = VectorAdd(
-				ScalarMult(MultVec3(bone0_mat, g_vertsOrg[row][corner]), weight[row]),
-				ScalarMult(MultVec3(bone1_mat, g_vertsOrg[row][corner]), 1 - weight[row])
+				ScalarMult(MultVec3(bone0_mat, g_vertsOrg[row][corner]), 1 - weight[row]),
+				ScalarMult(MultVec3(bone1_mat, g_vertsOrg[row][corner]), weight[row])
 			);
 			
 			// ----=========	Uppgift 1: Hard skinning (stitching) i CPU ===========-----
