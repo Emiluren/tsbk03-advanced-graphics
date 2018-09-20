@@ -53,6 +53,9 @@
 // Added GLUT_QUIT_FLAG for glutGet.
 // 150919: Added GLUT_MOUSE_POSITION_X and GLUT_MOUSE_POSITION_Y to glutGet.
 // 150923: Changed the keyboard special key constants to avoid all usable ASCII codes. This makes the "special key" calls unnecessary and keyboard handling simpler. We can stop using "special key" callbacks alltogether.
+// Some minor changes not documented.
+// 171019: Fixed a bug in context verison handling.
+// 180208: Added activateIgnoringOtherApps to bring it to front when launched.
 
 // Incompatibility in mouse coordinates; global or local?
 // Should be local! (I think they are now!)
@@ -141,7 +144,7 @@ void MakeContext(NSView *view)
 // Def this out about for disabling profile selection support,
 // if it is on we are defaulting to GL 1/2
 #ifndef GL3ONLY
-	if (gContextVersionMajor == 3)
+	if (gContextVersionMajor >= 3)
 #endif
 	// I ignore the minor version for now, 3.2 is all we can choose currently
 	{
@@ -814,6 +817,7 @@ int glutCreateWindow (char *windowTitle)
 	MakeContext(view);
 
 // Moved from main loop
+	[NSApp activateIgnoringOtherApps:YES]; // Added 180208
 	[window setDelegate: (GlutView*)view];
 	[window makeKeyAndOrderFront: nil];
 	[window makeFirstResponder: view]; // Added 130214

@@ -15,8 +15,7 @@ extern "C" {
 		#include <GL/gl.h>
 	#endif
 #endif
-//#include "MicroGlut.h"
-
+#include <stdlib.h>
 
 void printError(const char *functionName);
 GLuint loadShaders(const char *vertFileName, const char *fragFileName);

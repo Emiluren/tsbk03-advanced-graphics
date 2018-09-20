@@ -23,7 +23,6 @@
 // Names for functions when supporting both vec3 and vec4, mat3 and mat4? (vec3Add, vec4Add?)
 
 
-
 // History:
 
 // VectorUtils is a small (but growing) math unit by Ingemar Ragnemalm.
@@ -64,16 +63,17 @@
 // 140213: Corrected mat3tomat4. (Were did the correction in 130924 go?)
 // 151210: Added printMat4 and printVec3.
 // 160302: Added empty constuctors for vec3 and vec4.
+// 170221: Uses _WIN32 instead of WIN32
+// 170331: Added stdio.h for printMat4 and printVec3
 
 // You may use VectorUtils as you please. A reference to the origin is appreciated
 // but if you grab some snippets from it without reference... no problem.
 
 
 #include "VectorUtils3.h"
-#include <stdio.h>
 
 // VS doesn't define NAN properly
-#ifdef WIN32
+#ifdef _WIN32
     #ifndef NAN
         static const unsigned long __nan[2] = {0xffffffff, 0x7fffffff};
         #define NAN (*(const float *) __nan)
@@ -200,7 +200,7 @@ char transposed = 0;
 	{
 		GLfloat result;
 
-		result = sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+		result = (GLfloat)sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
 		return result;
 	}
 
@@ -209,7 +209,7 @@ char transposed = 0;
 		GLfloat norm;
 		vec3 result;
 
-		norm = sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+		norm = (GLfloat)sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
 		result.x = a.x / norm;
 		result.y = a.y / norm;
 		result.z = a.z / norm;
@@ -265,11 +265,11 @@ char transposed = 0;
 	{
 		mat4 m;
 		m = IdentityMatrix();
-		m.m[5] = cos(a);
+		m.m[5] = (GLfloat)cos(a);
 		if (transposed)
-			m.m[9] = -sin(a);
+			m.m[9] = (GLfloat)-sin(a);
 		else
-			m.m[9] = sin(a);
+			m.m[9] = (GLfloat)sin(a);
 		m.m[6] = -m.m[9]; //sin(a);
 		m.m[10] = m.m[5]; //cos(a);
 		return m;
@@ -279,11 +279,11 @@ char transposed = 0;
 	{
 		mat4 m;
 		m = IdentityMatrix();
-		m.m[0] = cos(a);
+		m.m[0] = (GLfloat)cos(a);
 		if (transposed)
-			m.m[8] = sin(a); // Was flipped
+			m.m[8] = (GLfloat)sin(a); // Was flipped
 		else
-			m.m[8] = -sin(a);
+			m.m[8] = (GLfloat)-sin(a);
 		m.m[2] = -m.m[8]; //sin(a);
 		m.m[10] = m.m[0]; //cos(a);
 		return m;
@@ -293,11 +293,11 @@ char transposed = 0;
 	{
 		mat4 m;
 		m = IdentityMatrix();
-		m.m[0] = cos(a);
+		m.m[0] = (GLfloat)cos(a);
 		if (transposed)
-			m.m[4] = -sin(a);
+			m.m[4] = (GLfloat)-sin(a);
 		else
-			m.m[4] = sin(a);
+			m.m[4] = (GLfloat)sin(a);
 		m.m[1] = -m.m[4]; //sin(a);
 		m.m[5] = m.m[0]; //cos(a);
 		return m;
@@ -732,7 +732,7 @@ mat4 frustum(float left, float right, float bottom, float top,
     float temp, temp2, temp3, temp4;
     mat4 matrix;
     
-    temp = 2.0 * znear;
+    temp = 2.0f * znear;
     temp2 = right - left;
     temp3 = top - bottom;
     temp4 = zfar - znear;

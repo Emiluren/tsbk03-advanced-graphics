@@ -11,7 +11,7 @@
 // Added DisposeModel. Limited the number of error printouts, thanks to Rasmus Hytter for this suggestion!
 // 160302: Uses fopen_s on Windows, as suggested by Jesper Post. Should reduce warnings a bit.
 // 160510: Uses calloc instead of malloc (for safety) in many places where it could possibly cause problems.
-//
+// 170406: Added "const" to string arguments to make C++ happier.
 
 #include "loadobj.h"
 #include <stdio.h>
@@ -922,6 +922,9 @@ Mesh **SplitToMeshes(Mesh *m)
 	int * mapc = (int *)malloc(m->vertexCount * sizeof(int));
 	int * mapt = (int *)malloc(m->texCount * sizeof(int));
 	int * mapn = (int *)malloc(m->normalsCount * sizeof(int));
+		int newCoordIndexCount = 0; // Number of coords put in mm[i]->coordIndex
+		int newNormalsIndexCount = 0; // Number of normals put in mm[i]->normalsIndex
+		int newTexIndexCount = 0; // Number of coords put in mm[i]->textureIndex
 	
 	Mesh **mm = (Mesh **)calloc(sizeof(Mesh *), m->groupCount+2);
 	int j = 0;
@@ -962,9 +965,9 @@ Mesh **SplitToMeshes(Mesh *m)
 		
 		// OBSOLETE! Use mm[i]->normalsCount etc instead! No, that is data, not indices!
 		// These should all equal to mm[i]->coordCount in the end but must be separate in the mean time!
-		int newCoordIndexCount = 0; // Number of coords put in mm[i]->coordIndex
-		int newNormalsIndexCount = 0; // Number of normals put in mm[i]->normalsIndex
-		int newTexIndexCount = 0; // Number of coords put in mm[i]->textureIndex
+//		int newCoordIndexCount = 0; // Number of coords put in mm[i]->coordIndex
+//		int newNormalsIndexCount = 0; // Number of normals put in mm[i]->normalsIndex
+//		int newTexIndexCount = 0; // Number of coords put in mm[i]->textureIndex
 		
 //		if (m->coordStarts == NULL)
 //			printf("Oh shit!\n");
@@ -1065,7 +1068,7 @@ Mesh **SplitToMeshes(Mesh *m)
 }
 
 
-Model* LoadModel(char* name)
+Model* LoadModel(const char* name)
 {
 	Model* model = 0;
 	Mesh* mesh = LoadOBJ(name);
@@ -1133,7 +1136,7 @@ void ScaleModel(Model *m, float sx, float sy, float sz)
 	}
 }
 
-void ReportRerror(char *caller, char *name)
+void ReportRerror(const char *caller, const char *name)
 {
 	static unsigned int draw_error_counter = 0; 
 	// Report error - but not more than NUM_DRAWMODEL_ERROR
@@ -1156,7 +1159,7 @@ void ReportRerror(char *caller, char *name)
 // and to get attribute locations. This is clearly not optimal, but the
 // goal is stability.
 
-void DrawModel(Model *m, GLuint program, char* vertexVariableName, char* normalVariableName, char* texCoordVariableName)
+void DrawModel(Model *m, GLuint program, const char* vertexVariableName, const char* normalVariableName, const char* texCoordVariableName)
 {
 	if (m != NULL)
 	{
@@ -1205,7 +1208,7 @@ void DrawModel(Model *m, GLuint program, char* vertexVariableName, char* normalV
 	}
 }
 
-void DrawWireframeModel(Model *m, GLuint program, char* vertexVariableName, char* normalVariableName, char* texCoordVariableName)
+void DrawWireframeModel(Model *m, GLuint program, const char* vertexVariableName, const char* normalVariableName, const char* texCoordVariableName)
 {
 	if (m != NULL)
 	{
@@ -1287,7 +1290,7 @@ void ReloadModelData(Model *m)
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, m->numIndices*sizeof(GLuint), m->indexArray, GL_STATIC_DRAW);
 }
 
-Model* LoadModelPlus(char* name/*,
+Model* LoadModelPlus(const char* name/*,
 			GLuint program,
 			char* vertexVariableName,
 			char* normalVariableName,

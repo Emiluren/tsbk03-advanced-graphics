@@ -13,6 +13,7 @@
 	#include <GL/gl.h>
 #endif
 #include <math.h>
+#include <stdio.h>
 
 
 #ifndef M_PI

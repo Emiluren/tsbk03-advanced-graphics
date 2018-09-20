@@ -26,6 +26,16 @@
 // 150223: Finally, decent handling on the GLUT configuration!
 // 150227: Resize triggers an update!
 // 150302: Window position, multisample, even better config
+// 150618: Added glutMouseIsDown() (not in the old GLUT API but a nice extension!).
+// Added #ifdefs to produce errors if compiled on the wrong platform!
+// 150909: Added glutExit.
+// 150924: Added support for special keys.
+// 160302: Added glutShowCursor and glutHideCursor.
+// 170405: Made some globals static.
+// 170406: Added "const" to string arguments to make C++ happier. glutSpecialFunc and glutSpecialUpFunc are now officially supported - despite being deprecated. (I recommend that you use the same keyboard func for everything.) Added support for multiple mouse buttons (right and left).
+// 170410: Modified glutWarpPointer to make it more robust. Commended out some unused variables to avoid warnings.
+// 180124: Modifications to make it work better on recent MESA, which seems to have introduced some changes. Adds glFlush() in glutSwapBuffers and a timer when starting glutMain to invoke an update after 100 ms.
+// 180208: Added GLUT_WINDOW_WIDTH, GLUT_WINDOW_HEIGHT, GLUT_MOUSE_POSITION_X and GLUT_MOUSE_POSITION_Y to GlutGet. They were already in the Mac version, so let's converge the versions a bit.
 
 #define _BSD_SOURCE
 #include <math.h>
@@ -46,22 +56,30 @@
 #define M_PI 3.14159265
 #endif
 
+// If this is compiled on the Mac or Windows, tell me!
+#ifdef __APPLE__
+	ERROR! This is NOT the Mac version of MicroGlut and will not work on the Mac!
+#endif
+#ifdef _WIN32
+	ERROR! This is NOT the Windows version of MicroGlut and will not work on Windows!
+#endif
 
-unsigned int winWidth = 300, winHeight = 300;
-unsigned int winPosX = 40, winPosY = 40;
-int mode = GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH;
-int gContextVersionMajor = 0;
-int gContextVersionMinor = 0;
+static unsigned int winWidth = 300, winHeight = 300;
+static unsigned int winPosX = 40, winPosY = 40;
+//static int mode = GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH;
+static int gContextVersionMajor = 0;
+static int gContextVersionMinor = 0;
 
-Display *dpy;
-Window win;
-GLXContext ctx;
-char *dpyName = NULL;
+static Display *dpy;
+static Window win;
+static GLXContext ctx;
+//static char *dpyName = NULL;
 int gMode; // NOT YET USED
-char animate = 1; // Use for glutNeedsRedisplay?
+static char animate = 1; // Use for glutNeedsRedisplay?
 struct timeval timeStart;
 static Atom wmDeleteMessage; // To handle delete msg
-char gKeymap[256];
+static char gKeymap[256];
+static char gRunning = 1;
 
 void glutInit(int *argc, char *argv[])
 {
@@ -292,7 +310,7 @@ make_window( Display *dpy, const char *name,
    *ctxRet = ctx;
 }
 
-void glutCreateWindow(char *windowTitle)
+void glutCreateWindow(const char *windowTitle)
 {
    dpy = XOpenDisplay(NULL);
    if (!dpy)
@@ -312,9 +330,16 @@ void (*gReshape)(int width, int height);
 void (*gIdle)(void);
 void (*gKey)(unsigned char key, int x, int y);
 void (*gKeyUp)(unsigned char key, int x, int y);
+void (*gSpecialKey)(unsigned char key, int x, int y);
+void (*gSpecialKeyUp)(unsigned char key, int x, int y);
 void (*gMouseMoved)(int x, int y);
 void (*gMouseDragged)(int x, int y);
 void (*gMouseFunc)(int button, int state, int x, int y);
+int gLastMousePositionX, gLastMousePositionY; // Avoids a problem with glutWarpPointer
+
+// Maybe I should just drop these for simplicity
+//void (*gSpecialKey)(unsigned char key, int x, int y) = NULL;
+//void (*gSpecialKeyUp)(unsigned char key, int x, int y) = NULL;
 
 
 void glutReshapeFunc(void (*func)(int width, int height))
@@ -336,6 +361,15 @@ void glutKeyboardUpFunc(void (*func)(unsigned char key, int x, int y))
 {
 	gKeyUp = func;
 }
+void glutSpecialFunc(void (*func)(unsigned char key, int x, int y))
+{
+	gSpecialKey = func;
+}
+
+void glutSpecialUpFunc(void (*func)(unsigned char key, int x, int y))
+{
+	gSpecialKeyUp = func;
+}
 
 void glutMouseFunc(void (*func)(int button, int state, int x, int y))
 {gMouseFunc = func;}
@@ -346,19 +380,97 @@ void glutPassiveMotionFunc(void (*func)(int x, int y))
 
 char gButtonPressed[10] = {0,0,0,0,0,0,0,0,0,0};
 
-void glutMainLoop()
+void doKeyboardEvent(XEvent event, void (*keyProc)(unsigned char key, int x, int y), void (*specialKeyProc)(unsigned char key, int x, int y), int keyMapValue)
 {
 	char buffer[10];
 //	int r; // code;
-	char done = 0;
+	
+	int code = ((XKeyEvent *)&event)->keycode;
+	
+//	r = 
+	XLookupString(&event.xkey, buffer, sizeof(buffer), NULL, NULL);
+	char raw = buffer[0]; // Before remapping
+	switch(code)
+	{
+		case 111: buffer[0] = GLUT_KEY_UP; break;
+		case 114: buffer[0] = GLUT_KEY_RIGHT; break;
+		case 116: buffer[0] = GLUT_KEY_DOWN; break;
+		case 113: buffer[0] = GLUT_KEY_LEFT; break;
+		case 67: buffer[0] = GLUT_KEY_F1; break;
+		case 68: buffer[0] = GLUT_KEY_F2; break;
+		case 69: buffer[0] = GLUT_KEY_F3; break;
+		case 70: buffer[0] = GLUT_KEY_F4; break;
+		case 71: buffer[0] = GLUT_KEY_F5; break;
+		case 72: buffer[0] = GLUT_KEY_F6; break;
+		case 73: buffer[0] = GLUT_KEY_F7; break;
+		case 112: buffer[0] = GLUT_KEY_PAGE_UP; break;
+		case 117: buffer[0] = GLUT_KEY_PAGE_DOWN; break;
+		case 110: buffer[0] = GLUT_KEY_HOME; break;
+		case 115: buffer[0] = GLUT_KEY_END; break;
+		case 118: buffer[0] = GLUT_KEY_INSERT; break;
 
+		case 50: buffer[0] = GLUT_KEY_LEFT_SHIFT; break;
+		case 62: buffer[0] = GLUT_KEY_RIGHT_SHIFT; break;
+		case 37:case 105: buffer[0] = GLUT_KEY_CONTROL; break;
+		case 64:case 108: buffer[0] = GLUT_KEY_ALT; break;
+		case 133:case 134: buffer[0] = GLUT_KEY_COMMAND; break;
+
+// Keypad
+		case 90: buffer[0] = GLUT_KEY_INSERT; break;
+		case 87: buffer[0] = GLUT_KEY_END; break;
+		case 88: buffer[0] = GLUT_KEY_DOWN; break;
+		case 89: buffer[0] = GLUT_KEY_PAGE_DOWN; break;
+		case 83: buffer[0] = GLUT_KEY_LEFT; break;
+//		case 84: buffer[0] = GLUT_KEY_KEYPAD_5; break;
+		case 85: buffer[0] = GLUT_KEY_RIGHT; break;
+		case 79: buffer[0] = GLUT_KEY_HOME; break;
+		case 80: buffer[0] = GLUT_KEY_UP; break;
+		case 81: buffer[0] = GLUT_KEY_PAGE_UP; break;
+		case 82: buffer[0] = 127; break;
+//		case 77: buffer[0] = GLUT_KEY_KEYPAD_NUMLOCK; break;
+	}	
+	
+	// If we asked for a separate callback for special ketys, call it. Otherwise call the standard one.
+	// I am considering removing the special callback for simplicity!
+	if (raw == 0)
+	{
+		if (specialKeyProc)
+			specialKeyProc(buffer[0], 0, 0);
+		else
+			if (keyProc)
+				keyProc(buffer[0], 0, 0);
+	}
+	else
+		if (keyProc)
+			keyProc(buffer[0], 0, 0);
+	gKeymap[(int)buffer[0]] = keyMapValue;
+	
+//	printf("%c %d %d %d\n", buffer[0], buffer[0], r, code);
+
+//	      			if (event.type == KeyPress)
+//		      		{	if (gKey) gKey(buffer[0], 0, 0); gKeymap[(int)buffer[0]] = 1;}
+//		      		else
+//		      		{	if (gKeyUp) gKeyUp(buffer[0], 0, 0); gKeymap[(int)buffer[0]] = 0;}
+}
+
+void internaltimer(int x)
+{
+	glutPostRedisplay();
+}
+
+void glutMainLoop()
+{
 	char pressed = 0;
 	int i;
 
 	XAllowEvents(dpy, AsyncBoth, CurrentTime);
 
-	while (!done)
+// 2018-01-24: An attempt to patch over the problem that recent MESA tends to fail the first update.
+	glutTimerFunc(100, internaltimer, 0);
+
+	while (gRunning)
 	{
+//      int op = 0;
       while (XPending(dpy) > 0)
       {
          XEvent event;
@@ -368,9 +480,10 @@ void glutMainLoop()
          {
          	case ClientMessage:
          		if (event.xclient.data.l[0] == wmDeleteMessage) // quit!
-         			done = 1;
+         			gRunning = 0;
 	         	break;
          	case Expose: 
+//			op = 1; 
 				break; // Update event! Should do draw here.
          	case ConfigureNotify:
 				if (gReshape)
@@ -380,36 +493,54 @@ void glutMainLoop()
 					glViewport(0, 0, event.xconfigure.width, event.xconfigure.height);
 				}
 				animate = 1;
+				winWidth = event.xconfigure.width;
+				winHeight = event.xconfigure.height;
       			break;
       		case KeyPress:
+				doKeyboardEvent(event, gKey, gSpecialKey, 1);break;
       		case KeyRelease:
-		        XLookupString(&event.xkey, buffer, sizeof(buffer),
-                              NULL, NULL);
-
-      			if (event.type == KeyPress)
-	      		{	if (gKey) gKey(buffer[0], 0, 0); gKeymap[(int)buffer[0]] = 1;}
-	      		else
-	      		{	if (gKeyUp) gKeyUp(buffer[0], 0, 0); gKeymap[(int)buffer[0]] = 0;}
-      			break;
+				doKeyboardEvent(event, gKeyUp, gSpecialKeyUp, 0);break;
 			case ButtonPress:
 				gButtonPressed[event.xbutton.button] = 1;
 				if (gMouseFunc != NULL)
-					gMouseFunc(GLUT_LEFT_BUTTON, GLUT_DOWN, event.xbutton.x, event.xbutton.y);
+				switch (event.xbutton.button)
+				{
+				case Button1:
+					gMouseFunc(GLUT_LEFT_BUTTON, GLUT_DOWN, event.xbutton.x, event.xbutton.y);break;
+				case Button2:
+					gMouseFunc(GLUT_MIDDLE_BUTTON, GLUT_DOWN, event.xbutton.x, event.xbutton.y);break;
+				case Button3:
+					gMouseFunc(GLUT_RIGHT_BUTTON, GLUT_DOWN, event.xbutton.x, event.xbutton.y);break;
+				}
 				break;
 			case ButtonRelease:
 				gButtonPressed[event.xbutton.button] = 0;
 				if (gMouseFunc != NULL)
-					gMouseFunc(GLUT_LEFT_BUTTON, GLUT_UP, event.xbutton.x, event.xbutton.y);
+				switch (event.xbutton.button)
+				{
+				case Button1:
+					gMouseFunc(GLUT_LEFT_BUTTON, GLUT_UP, event.xbutton.x, event.xbutton.y);break;
+				case Button2:
+					gMouseFunc(GLUT_MIDDLE_BUTTON, GLUT_UP, event.xbutton.x, event.xbutton.y);break;
+				case Button3:
+					gMouseFunc(GLUT_RIGHT_BUTTON, GLUT_UP, event.xbutton.x, event.xbutton.y);break;
+				}
 				break;
 		case MotionNotify:
 				pressed = 0;
 				for (i = 0; i < 5; i++)
 					if (gButtonPressed[i]) pressed = 1;
-					if (pressed && gMouseDragged)
-						gMouseDragged(event.xbutton.x, event.xbutton.y);
-					else
-					if (gMouseMoved)
-						gMouseMoved(event.xbutton.x, event.xbutton.y);
+
+				// Saving the last known position in order to avoid problems for glutWarpPointer
+				// If we try warping to this position, don't!
+				gLastMousePositionX = event.xbutton.x;
+				gLastMousePositionY = event.xbutton.y;
+
+				if (pressed && gMouseDragged)
+					gMouseDragged(event.xbutton.x, event.xbutton.y);
+				else
+				if (gMouseMoved)
+					gMouseMoved(event.xbutton.x, event.xbutton.y);
 				break;
 
 		default:
@@ -424,6 +555,7 @@ void glutMainLoop()
 		  	gDisplay();
 		else
 			printf("No display function!\n");
+//      	op = 0;
       }
 		else
 		if (gIdle) gIdle();
@@ -438,6 +570,7 @@ void glutMainLoop()
 
 void glutSwapBuffers()
 {
+	glFlush(); // Added 2018-01-24, part of a fix for new MESA
 	glXSwapBuffers(dpy, win);
 }
 
@@ -450,8 +583,21 @@ int glutGet(int type)
 {
 	struct timeval tv;
 	
-	gettimeofday(&tv, NULL);
-	return (tv.tv_usec - timeStart.tv_usec) / 1000 + (tv.tv_sec - timeStart.tv_sec)*1000;
+	switch (type)
+	{
+		case GLUT_ELAPSED_TIME:
+		gettimeofday(&tv, NULL);
+		return (tv.tv_usec - timeStart.tv_usec) / 1000 + (tv.tv_sec - timeStart.tv_sec)*1000;
+		case GLUT_WINDOW_WIDTH:
+		return winWidth;
+		case GLUT_WINDOW_HEIGHT:
+		return winHeight;
+		case GLUT_MOUSE_POSITION_X:
+		return gLastMousePositionX;
+		case GLUT_MOUSE_POSITION_Y:
+		return gLastMousePositionY;
+	}
+	return 0;
 }
 
 // NOTE: The timer is not designed with any multithreading in mind!
@@ -558,7 +704,7 @@ void glutInitContextVersion(int major, int minor)
 	gContextVersionMinor = minor;
 }
 
-// Based on FreeGlut glutWarpPointer
+// Based on FreeGlut glutWarpPointer, but with a significant improvement!
 /*
  * Moves the mouse pointer to given window coordinates
  */
@@ -569,6 +715,9 @@ void glutWarpPointer( int x, int y )
       fprintf(stderr, "glutWarpPointer failed: MicroGlut not initialized!\n");
     	return;
     }
+
+	if (x == gLastMousePositionX && y == gLastMousePositionY)
+		return; // Don't warp to where we already are - this causes event flooding!
 
     XWarpPointer(
         dpy, // fgDisplay.Display,
@@ -582,9 +731,43 @@ void glutWarpPointer( int x, int y )
 //    XFlush( fgDisplay.Display );
 }
 
+// Replaces glutSetMousePointer. This limits us to the two most common cases: None and arrow!
+void glutShowCursor()
+{
+	XUndefineCursor(dpy, win);
+}
+
+void glutHideCursor()
+{
+	if (dpy == NULL) 
+	{
+	   printf("glutHideCursor failed: MicroGlut not initialized!\n");
+   	return;
+	}
+	
+	Cursor invisibleCursor;
+	Pixmap bitmapNoData;
+	static char noll[] = { 0,0,0};
+	bitmapNoData = XCreateBitmapFromData(dpy, win, noll, 1, 1);
+	invisibleCursor = XCreatePixmapCursor(dpy,bitmapNoData, bitmapNoData, 
+	                                     (XColor *)noll, (XColor *)noll, 0, 0);
+	XDefineCursor(dpy,win, invisibleCursor);
+	XFreeCursor(dpy, invisibleCursor);
+	XFreePixmap(dpy, bitmapNoData);
+}
+
+
+
 char glutKeyIsDown(unsigned char c)
 {
 	return gKeymap[(unsigned int)c];
+}
+
+// Added by the Risinger/RŒberg/Wikstršm project! But... gButtonPressed
+// was already here! Did I miss something?
+char glutMouseIsDown(unsigned char c)
+{
+	return gButtonPressed[(unsigned int)c];
 }
 
 
@@ -641,4 +824,8 @@ void glutToggleFullScreen()
 		glutFullScreen();
 }
 
+void glutExit()
+{
+	gRunning = 0;
+}
 

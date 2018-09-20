@@ -8,7 +8,6 @@
 
 // 120309 First Win32 version. Incomplete, lacks timers and more. Also, most settings are not supported.
 // 130204 Tried to add GL3 and GLEW. No success.
-
 // Forgotten for too long...
 // 1508013 Running with all current utities and GLEW, with the psychedelic teapot demo!
 // Timers and rescaling enabled, needs testing.
@@ -20,6 +19,13 @@
 // 150923: Keyboard events now report ASCII values instead of virtual codes. Also, various special keys like arrow keys should work.
 // Finally, I have taken some steps to make special key callbacks obsolete by smarter mapping of special keys.
 // 151203: Added a stdio window.
+// 160222: Fixed a bug affecting glutKeyIsDown (a very important call which works better now).
+// 1602??: Added glutWarpPointer, glutHideCursor, glutShowCursor.
+// 160309: Added glutFullScreen, glutExitFullScreen, glutToggleFullScreen.
+// 170221: Added glutPositionWindow, glutReshapeWindow. Changed default behavior on resize.
+// 170913: Added glutMouseIsDown, corrected support for glutMotionFunc (dragging).
+// 180131: New solution for console output. The old one stopped for unknown reasons.
+
 
 #include <windows.h>
 #include "glew.h"
@@ -52,6 +58,7 @@ char gRunning = 1;
 int gContextVersionMajor = 0;
 int gContextVersionMinor = 0;
 char gKeymap[256];
+char gButtonPressed[10] = {0,0,0,0,0,0,0,0,0,0};
 
 // Prototype
 static void checktimers();
@@ -165,13 +172,16 @@ void glutInit(int *argcp, char **argv)
 
 	// Make printf work!
 	AllocConsole();
-	hCrt = _open_osfhandle(
-		(long) GetStdHandle(STD_OUTPUT_HANDLE),
-		_O_TEXT
-		);
-	hf = _fdopen( hCrt, "w" );
-	*stdout = *hf;
-	i = setvbuf( stdout, NULL, _IONBF, 0 );
+//	hCrt = _open_osfhandle(
+//		(long) GetStdHandle(STD_OUTPUT_HANDLE),
+//		_O_TEXT
+//		);
+//	hf = _fdopen( hCrt, "w" );
+	freopen_s(&hf, "CONOUT$", "w", stdout);
+	freopen_s(&hf, "CONOUT$", "w", stderr);
+	//	*stdout = *hf;
+//	i = setvbuf( stdout, NULL, _IONBF, 0 );
+//	printf("stdio output open\n");
 }
 
 int gWindowPosX = 10;
@@ -413,7 +423,7 @@ static void doKeyboardEvent(WPARAM wParam, LPARAM lParam, void (*keyFunc)(unsign
 				c = GLUT_KEY_INSERT; break;
 			default:
 				c = scan2ascii(wParam,lParam);
-				if (c == 0) return 0;
+				if (c == 0) return;
 		}
 		if (keyFunc != NULL)
 		{
@@ -425,6 +435,7 @@ static void doKeyboardEvent(WPARAM wParam, LPARAM lParam, void (*keyFunc)(unsign
 			specialKeyFunc(c, 0, 0); // TO DO: x and y
 		}
 		gKeymap[c] = keyMapValue;
+		printf("key %i %i\n", c, keyMapValue);
 }
 
 
@@ -438,26 +449,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_LBUTTONUP:
 		if (gMouseFunc != NULL)
 			gMouseFunc(GLUT_LEFT_BUTTON, GLUT_UP, x, y);
+		gButtonPressed[0] = 0;
         break;
 
     case WM_LBUTTONDOWN:
 		if (gMouseFunc != NULL)
 			gMouseFunc(GLUT_LEFT_BUTTON, GLUT_DOWN, x, y);
+		gButtonPressed[0] = 1;
      break;
 
     case WM_RBUTTONUP:
 		if (gMouseFunc != NULL)
 			gMouseFunc(GLUT_RIGHT_BUTTON, GLUT_UP, x, y);
+		gButtonPressed[1] = 0;
         break;
 
     case WM_RBUTTONDOWN:
 		if (gMouseFunc != NULL)
 			gMouseFunc(GLUT_RIGHT_BUTTON, GLUT_DOWN, x, y);
+		gButtonPressed[1] = 1;
      break;
 
     case WM_MOUSEMOVE:
 		if (gMouseMoved != NULL)
 			gMouseMoved(x, y);
+		if (gButtonPressed[0] || gButtonPressed[1])
+			if (gMouseDragged != NULL)
+			gMouseDragged(x, y);
     break;
 
 	case WM_CREATE:
@@ -471,7 +489,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		return 0;
 		
 	case WM_KEYDOWN:
-		doKeyboardEvent(wParam, lParam, gKey, gSpecialKey, 0);
+		doKeyboardEvent(wParam, lParam, gKey, gSpecialKey, 1);
 		return 0;
 	case WM_KEYUP:
 		doKeyboardEvent(wParam, lParam, gKeyUp, gSpecialKeyUp, 0);
@@ -480,9 +498,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_SIZE:
 		if (gReshape != NULL)
 			gReshape(LOWORD(lParam), HIWORD(lParam));
+		else
+		{	glViewport(0,0,LOWORD(lParam), HIWORD(lParam));
+			glutPostRedisplay();
+		}
 		break;
 	case WM_PAINT: // Don't have Windows fighting us while resize!
-		gDisplay();
+		if (gDisplay)
+			gDisplay();
 		break;
 	case WM_ERASEBKGND:
 		return 1;
@@ -655,4 +678,146 @@ void glutInitContextVersion(int major, int minor)
 {
 	gContextVersionMajor = major;
 	gContextVersionMinor = minor;
+}
+
+
+void glutHideCursor()
+{
+	ShowCursor(0);
+}
+
+void glutShowCursor()
+{
+	ShowCursor(1);
+}
+
+void glutWarpPointer(int x, int y)
+{
+	POINT coords;
+	coords.x = x;
+	coords.y = y;
+	ClientToScreen(hWnd, &coords);
+	SetCursorPos(coords.x, coords.y);
+}
+
+
+
+
+
+
+// ----------------------------- Full-screen mode support! ---------------------------------
+
+static int savedWidth;
+static int savedHeight;
+static int savedColourBits;
+static int savedRefreshRate;
+static int savedXPosition;
+static int savedYPosition;
+
+// This can be useful if you want to change the resolution.
+static int enterFullscreenExt(HWND hwnd, int fullscreenWidth, int fullscreenHeight, int colourBits, int refreshRate)
+{
+    DEVMODE fullscreenSettings;
+    int isChangeSuccessful=0;
+    RECT windowBoundary;
+	HDC windowHDC;
+	
+	GetWindowRect(hwnd, &windowBoundary);
+	savedWidth  = windowBoundary.right - windowBoundary.left;
+	savedHeight = windowBoundary.bottom - windowBoundary.top;
+	savedXPosition = windowBoundary.left;
+	savedYPosition = windowBoundary.top;
+
+    EnumDisplaySettings(NULL, 0, &fullscreenSettings);
+    fullscreenSettings.dmPelsWidth        = fullscreenWidth;
+    fullscreenSettings.dmPelsHeight       = fullscreenHeight;
+    fullscreenSettings.dmBitsPerPel       = colourBits;
+    fullscreenSettings.dmDisplayFrequency = refreshRate;
+    fullscreenSettings.dmFields           = DM_PELSWIDTH |
+                                            DM_PELSHEIGHT |
+                                            DM_BITSPERPEL |
+                                            DM_DISPLAYFREQUENCY;
+
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_APPWINDOW | WS_EX_TOPMOST);
+    SetWindowLongPtr(hwnd, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, fullscreenWidth, fullscreenHeight, SWP_SHOWWINDOW);
+//    isChangeSuccessful = ChangeDisplaySettings(&fullscreenSettings, CDS_FULLSCREEN) == DISP_CHANGE_SUCCESSFUL;
+    ShowWindow(hwnd, SW_MAXIMIZE);
+
+    return isChangeSuccessful;
+}
+
+static int enterFullscreen(HWND hwnd)
+{
+	int fullscreenWidth;
+	int fullscreenHeight;
+	int colourBits;
+	int refreshRate;
+	HDC windowHDC;
+	
+	windowHDC = GetDC(hwnd);
+	fullscreenWidth  = GetDeviceCaps(windowHDC, HORZRES);
+	fullscreenHeight = GetDeviceCaps(windowHDC, VERTRES);
+	colourBits       = GetDeviceCaps(windowHDC, BITSPIXEL);
+	refreshRate      = GetDeviceCaps(windowHDC, VREFRESH);
+
+	return enterFullscreenExt(hwnd, fullscreenWidth, fullscreenHeight, colourBits, refreshRate);
+}
+
+static int exitFullscreen(HWND hwnd)
+{
+    int isChangeSuccessful;
+
+    SetWindowLongPtr(hwnd, GWL_EXSTYLE, WS_EX_LEFT);
+    SetWindowLongPtr(hwnd, GWL_STYLE, WS_OVERLAPPEDWINDOW | WS_VISIBLE);
+    isChangeSuccessful = ChangeDisplaySettings(NULL, CDS_RESET) == DISP_CHANGE_SUCCESSFUL;
+    SetWindowPos(hwnd, HWND_NOTOPMOST, savedXPosition, savedYPosition, savedWidth, savedHeight, SWP_SHOWWINDOW);
+    ShowWindow(hwnd, SW_RESTORE);
+
+    return isChangeSuccessful;
+}
+
+int isFullScreen = 0;
+
+void glutFullScreen()
+{
+	if (!isFullScreen)
+		enterFullscreen(hWnd);
+	isFullScreen = 1;
+}
+
+void glutExitFullScreen()
+{
+	if (isFullScreen)
+		exitFullscreen(hWnd);
+	isFullScreen = 0;
+}
+
+void glutToggleFullScreen()
+{
+	if (!isFullScreen)
+		enterFullscreen(hWnd);
+	else
+		exitFullscreen(hWnd);
+	isFullScreen = !isFullScreen;
+}
+
+// Added 2017-02-21
+void glutPositionWindow(int x, int y)
+{
+	RECT r;
+	GetWindowRect(hWnd, &r);
+	MoveWindow(hWnd, x, y, r.right-r.left, r.bottom-r.top, TRUE);
+}
+
+void glutReshapeWindow(int width, int height)
+{
+	RECT r;
+	GetWindowRect(hWnd, &r);
+	MoveWindow(hWnd, r.left, r.top, width, height, TRUE);
+}
+
+char glutMouseIsDown(unsigned int c)
+{
+	return gButtonPressed[c];
 }

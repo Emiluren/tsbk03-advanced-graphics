@@ -33,6 +33,7 @@ int glutGet(int type);
 void glutInitDisplayMode(unsigned int mode);
 void glutIdleFunc(void (*func)(void));
 char glutKeyIsDown(unsigned char c);
+char glutMouseIsDown(unsigned int c);
 
 // Standard GLUT timer
 void glutTimerFunc(int millis, void (*func)(int arg), int arg);
@@ -40,6 +41,15 @@ void glutTimerFunc(int millis, void (*func)(int arg), int arg);
 void glutRepeatingTimer(int millis);
 
 void glutInitContextVersion(int major, int minor);
+
+void glutHideCursor();
+void glutShowCursor();
+void glutWarpPointer(int x, int y);
+void glutFullScreen();
+void glutExitFullScreen();
+void glutToggleFullScreen();
+void glutPositionWindow(int x, int y);
+void glutReshapeWindow(int width, int height);
 
 /* Mouse buttons. */
 #define GLUT_LEFT_BUTTON		0
