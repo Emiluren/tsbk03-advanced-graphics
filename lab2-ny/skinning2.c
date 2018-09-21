@@ -245,10 +245,9 @@ void setupBones(void)
 // Desc:	deformera cylinder-meshen enligt skelettet
 void DeformCylinder()
 {
-    //vec3 v[kMaxBones];
-
-    //float w[kMaxBones];
     int row, corner;
+
+    mat4 boneMatrices[kMaxBones];
 
     // för samtliga vertexar 
     for (row = 0; row < kMaxRow; row++)
@@ -394,6 +393,8 @@ int main(int argc, char **argv)
     glutKeyboardFunc( keyboardFunc ); 
     glutReshapeFunc(reshape);
 
+    g_shader = loadShaders("shader.vert" , "shader.frag");
+
     // Set up depth buffer
     glEnable(GL_DEPTH_TEST);
 
@@ -414,8 +415,6 @@ int main(int argc, char **argv)
 	(GLuint*) g_poly, // indices
 	kMaxRow*kMaxCorners,
 	kMaxg_poly * 3);
-
-    g_shader = loadShaders("shader.vert" , "shader.frag");
 
     glutMainLoop();
     exit(0);
