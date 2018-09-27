@@ -186,8 +186,11 @@ void updateWorld()
     for (i = 0; i < kNumBalls; i++) {
         for (j = i+1; j < kNumBalls; j++) {
             vec3 positionDiff = VectorSub(ball[i].position, ball[j].position);
-            if (kBallSize*2 >= Norm(positionDiff)) {
+            float ballDistance = Norm(positionDiff) - kBallSize*2;
+            if (ballDistance <= 0) {
                 vec3 collisionNormal = Normalize(positionDiff);
+                ball[i].position = VectorAdd(ball[i].position, ScalarMult(collisionNormal, -ballDistance/2));
+                ball[j].position = VectorAdd(ball[j].position, ScalarMult(collisionNormal, ballDistance/2));
 
                 vec3 paVelocity = CrossProduct(ball[i].angularVelocity, ScalarMult(collisionNormal, kBallSize));
                 vec3 pbVelocity = CrossProduct(ball[j].angularVelocity, ScalarMult(collisionNormal, kBallSize));
