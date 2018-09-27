@@ -256,13 +256,13 @@ void DeformCylinder()
 	mat4 boneRestMatrices[kMaxBones];
 	mat4 boneAnimMatrices[kMaxBones];
 
-	for(int b = kMaxBones - 1; b >= 0; --b){
-		boneRestMatrices[b] = TByVec(ScalarMult(g_bones[b].pos, -1));
-		boneAnimMatrices[b] = Mult(TByVec(g_bones[b].pos), g_bonesRes[b].rot);
-		if(b == kMaxBones - 1){
+	for(int b = 0; b < kMaxBones; ++b){
+		boneRestMatrices[b] = T(b == 0 ? 0 : -BONE_LENGTH, 0, 0);
+		boneAnimMatrices[b] = Mult(T(b == 0 ? 0 : BONE_LENGTH, 0, 0), g_bonesRes[b].rot);
+		if(b == 0){
 			boneAnimMatrices[b] = Mult(boneAnimMatrices[b], boneRestMatrices[b]);
 		} else {
-			boneAnimMatrices[b] = Mult(Mult(boneAnimMatrices[b], boneAnimMatrices[b + 1]), boneRestMatrices[b]);
+			boneAnimMatrices[b] = Mult(Mult(boneAnimMatrices[b], boneAnimMatrices[b - 1]), boneRestMatrices[b]);
 		}
 	}
 
@@ -297,7 +297,7 @@ void animateBones(void)
 {
 	int bone;
 	// Hur mycket kring varje led? ändra gärna.
-	float angleScales[10] = { 0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f };
+	float angleScales[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
 	float time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
 	// Hur mycket skall vi vrida?
