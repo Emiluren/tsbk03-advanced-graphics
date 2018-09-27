@@ -253,16 +253,20 @@ void DeformCylinder()
 {
 	int row, corner;
 
-	mat4 boneRestMatrices[kMaxBones];
 	mat4 boneAnimMatrices[kMaxBones];
 
 	for(int b = 0; b < kMaxBones; ++b){
-		boneRestMatrices[b] = T(b == 0 ? 0 : -BONE_LENGTH, 0, 0);
 		boneAnimMatrices[b] = Mult(T(b == 0 ? 0 : BONE_LENGTH, 0, 0), g_bonesRes[b].rot);
 		if(b == 0){
-			boneAnimMatrices[b] = Mult(boneAnimMatrices[b], boneRestMatrices[b]);
+			boneAnimMatrices[b] = g_bonesRes[b].rot;
 		} else {
-			boneAnimMatrices[b] = Mult(Mult(boneAnimMatrices[b], boneAnimMatrices[b - 1]), boneRestMatrices[b]);
+		    mat4 translation = T(b == 0 ? 0 : BONE_LENGTH, 0, 0);
+			mat4 translationInverse = T(b == 0 ? 0 : -BONE_LENGTH, 0, 0);
+
+			boneAnimMatrices[b] = Mult(
+				Mult(translation, g_bonesRes[b].rot),
+				Mult(boneAnimMatrices[b-1], translationInverse)
+			);
 		}
 	}
 
@@ -297,7 +301,7 @@ void animateBones(void)
 {
 	int bone;
 	// Hur mycket kring varje led? ändra gärna.
-	float angleScales[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+	float angleScales[10] = { 1.0f, 0.5f, 10.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };
 
 	float time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
 	// Hur mycket skall vi vrida?
