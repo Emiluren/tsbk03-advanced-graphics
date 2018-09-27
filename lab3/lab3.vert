@@ -17,5 +17,5 @@ void main(void)
     pixPos = vec3(viewMatrix /* * mdlMatrix*/ * vec4(in_Position, 1.0));
     out_Normal = mat3(viewMatrix) * in_Normal;
 
-	gl_Position = projMatrix * viewMatrix * vec4(in_Position, 1.0);
+    gl_Position = projMatrix * viewMatrix * vec4(in_Position, 1.0);
 }

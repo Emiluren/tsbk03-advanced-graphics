@@ -17,7 +17,7 @@ out vec4 out_Color;
 
 vec4 calculateLighting()
 {
-	const vec3 light = vec3(0.58, 0.58, 0.58); // Given in VIEW coordinates! You usually specify light sources in world coordinates.
+    const vec3 light = vec3(0.58, 0.58, 0.58); // Given in VIEW coordinates! You usually specify light sources in world coordinates.
 	
     vec3 normal = normalize(out_Normal);
 
