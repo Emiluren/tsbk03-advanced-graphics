@@ -72,13 +72,13 @@ typedef struct
     GLuint tex;
     GLfloat mass;
 
-    vec3 X, P, L; // position, linear momentum, angular momentum
-    mat4 R; // Rotation
+    vec3 position, linearMomentum, angularMomentum; // position, linear momentum, angular momentum
+    mat4 rotation; // Rotation
 
     vec3 F, T; // accumulated force and torque
 
 //  mat4 J, Ji; We could have these but we can live without them for spheres.
-    vec3 omega; // Angular momentum
+    vec3 angularVelocity;
     vec3 v; // Change in velocity
 
 } Ball;
@@ -172,14 +172,14 @@ void updateWorld()
     // Wall tests
     for (i = 0; i < kNumBalls; i++)
     {
-        if (ball[i].X.x < -0.82266270 + kBallSize)
-            ball[i].P.x = abs(ball[i].P.x);
-        if (ball[i].X.x > 0.82266270 - kBallSize)
-            ball[i].P.x = -abs(ball[i].P.x);
-        if (ball[i].X.z < -1.84146270 + kBallSize)
-            ball[i].P.z = abs(ball[i].P.z);
-        if (ball[i].X.z > 1.84146270 - kBallSize)
-            ball[i].P.z = -abs(ball[i].P.z);
+        if (ball[i].position.x < -0.82266270 + kBallSize)
+            ball[i].linearMomentum.x = abs(ball[i].linearMomentum.x);
+        if (ball[i].position.x > 0.82266270 - kBallSize)
+            ball[i].linearMomentum.x = -abs(ball[i].linearMomentum.x);
+        if (ball[i].position.z < -1.84146270 + kBallSize)
+            ball[i].linearMomentum.z = abs(ball[i].linearMomentum.z);
+        if (ball[i].position.z > 1.84146270 - kBallSize)
+            ball[i].linearMomentum.z = -abs(ball[i].linearMomentum.z);
     }
 
     // Detect collisions, calculate speed differences, apply forces
@@ -196,33 +196,33 @@ void updateWorld()
         // YOUR CODE HERE
     }
 
-// Update state, follows the book closely
+    // Update state, follows the book closely
     for (i = 0; i < kNumBalls; i++)
     {
         vec3 dX, dP, dL, dO;
         mat4 Rd;
 
-        // Note: omega is not set. How do you calculate it?
+        // Note: angularVelocity is not set. How do you calculate it?
         // YOUR CODE HERE
 
 //		v := P * 1/mass
-        ball[i].v = ScalarMult(ball[i].P, 1.0/(ball[i].mass));
+        ball[i].v = ScalarMult(ball[i].linearMomentum, 1.0/(ball[i].mass));
 //		X := X + v*dT
         dX = ScalarMult(ball[i].v, deltaT); // dX := v*dT
-        ball[i].X = VectorAdd(ball[i].X, dX); // X := X + dX
+        ball[i].position = VectorAdd(ball[i].position, dX); // position := position + deltaPosition
 //		R := R + Rd*dT
-        dO = ScalarMult(ball[i].omega, deltaT); // dO := omega*dT
+        dO = ScalarMult(ball[i].angularVelocity, deltaT); // dO := angularVelocity*dT
         Rd = CrossMatrix(dO); // Calc dO, add to R
-        Rd = Mult(Rd, ball[i].R); // Rotate the diff (NOTE: This was missing in early versions.)
-        ball[i].R = MatrixAdd(ball[i].R, Rd);
+        Rd = Mult(Rd, ball[i].rotation); // Rotate the diff (NOTE: This was missing in early versions.)
+        ball[i].rotation = MatrixAdd(ball[i].rotation, Rd);
 //		P := P + F * dT
         dP = ScalarMult(ball[i].F, deltaT); // dP := F*dT
-        ball[i].P = VectorAdd(ball[i].P, dP); // P := P + dP
+        ball[i].linearMomentum = VectorAdd(ball[i].linearMomentum, dP); // P := P + dP
 //		L := L + t * dT
         dL = ScalarMult(ball[i].T, deltaT); // dL := T*dT
-        ball[i].L = VectorAdd(ball[i].L, dL); // L := L + dL
+        ball[i].angularMomentum = VectorAdd(ball[i].angularMomentum, dL); // L := L + dL
 
-        OrthoNormalizeMatrix(&ball[i].R);
+        OrthoNormalizeMatrix(&ball[i].rotation);
     }
 }
 
@@ -231,8 +231,8 @@ void renderBall(int ballNr)
     glBindTexture(GL_TEXTURE_2D, ball[ballNr].tex);
 
     // Ball with rotation
-    transMatrix = T(ball[ballNr].X.x, kBallSize, ball[ballNr].X.z); // position
-    tmpMatrix = Mult(transMatrix, ball[ballNr].R); // ball rotation
+    transMatrix = T(ball[ballNr].position.x, kBallSize, ball[ballNr].position.z); // position
+    tmpMatrix = Mult(transMatrix, ball[ballNr].rotation); // ball rotation
     tmpMatrix = Mult(viewMatrix, tmpMatrix);
     glUniformMatrix4fv(glGetUniformLocation(shader, "viewMatrix"), 1, GL_TRUE, tmpMatrix.m);
     loadMaterial(ballMt);
@@ -243,7 +243,7 @@ void renderBall(int ballNr)
 
     tmpMatrix = S(1.0, 0.0, 1.0);
     tmpMatrix = Mult(tmpMatrix, transMatrix);
-    tmpMatrix = Mult(tmpMatrix, ball[ballNr].R);
+    tmpMatrix = Mult(tmpMatrix, ball[ballNr].rotation);
     tmpMatrix = Mult(viewMatrix, tmpMatrix);
     glUniformMatrix4fv(glGetUniformLocation(shader, "viewMatrix"), 1, GL_TRUE, tmpMatrix.m);
     loadMaterial(shadowMt);
@@ -304,18 +304,18 @@ void init()
     for (i = 0; i < kNumBalls; i++)
     {
         ball[i].mass = 1.0;
-        ball[i].X = SetVector(0.0, 0.0, 0.0);
-        ball[i].P = SetVector(((float)(i % 13))/ 50.0, 0.0, ((float)(i % 15))/50.0);
-        ball[i].R = IdentityMatrix();
+        ball[i].position = SetVector(0.0, 0.0, 0.0);
+        ball[i].linearMomentum = SetVector(((float)(i % 13))/ 50.0, 0.0, ((float)(i % 15))/50.0);
+        ball[i].rotation = IdentityMatrix();
     }
-    ball[0].X = SetVector(0, 0, 0);
-    ball[1].X = SetVector(0, 0, 0.5);
-    ball[2].X = SetVector(0.0, 0, 1.0);
-    ball[3].X = SetVector(0, 0, 1.5);
-    ball[0].P = SetVector(0, 0, 0);
-    ball[1].P = SetVector(0, 0, 0);
-    ball[2].P = SetVector(0, 0, 0);
-    ball[3].P = SetVector(0, 0, 1.00);
+    ball[0].position = SetVector(0, 0, 0);
+    ball[1].position = SetVector(0, 0, 0.5);
+    ball[2].position = SetVector(0.0, 0, 1.0);
+    ball[3].position = SetVector(0, 0, 1.5);
+    ball[0].linearMomentum = SetVector(0, 0, 0);
+    ball[1].linearMomentum = SetVector(0, 0, 0);
+    ball[2].linearMomentum = SetVector(0, 0, 0);
+    ball[3].linearMomentum = SetVector(0, 0, 1.00);
 
     cam = SetVector(0, 2, 2);
     point = SetVector(0, 0, 0);
