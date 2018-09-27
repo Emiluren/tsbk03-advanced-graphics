@@ -36,7 +36,6 @@
 
 #define NUM_LIGHTS 1
 #define kBallSize 0.1
-#define BALL_MASS 1.0f
 
 #define abs(x) (x > 0.0? x: -x)
 
@@ -197,7 +196,7 @@ void updateWorld()
                     VectorAdd(ball[j].v, pbVelocity)
                 );
                 float vrel = DotProduct(collisionNormal, relativeVelocity);
-                float impulseFactor = vrel * BALL_MASS;
+                float impulseFactor = 2 * vrel / (1/ball[i].mass + 1/ball[j].mass);
                 ball[i].linearMomentum = VectorAdd(ball[i].linearMomentum, ScalarMult(collisionNormal, -impulseFactor));
                 ball[j].linearMomentum = VectorAdd(ball[j].linearMomentum, ScalarMult(collisionNormal, impulseFactor));
             }
@@ -320,7 +319,7 @@ void init()
     // Initialize ball data, positions etc
     for (i = 0; i < kNumBalls; i++)
     {
-        ball[i].mass = BALL_MASS;
+        ball[i].mass = 1.0;
         ball[i].position = SetVector(0.0, 0.0, 0.0);
         ball[i].linearMomentum = SetVector(((float)(i % 13))/ 50.0, 0.0, ((float)(i % 15))/50.0);
         ball[i].rotation = IdentityMatrix();
@@ -332,7 +331,8 @@ void init()
     ball[0].linearMomentum = SetVector(0, 0, 0);
     ball[1].linearMomentum = SetVector(0, 0, 0);
     ball[2].linearMomentum = SetVector(0, 0, 0);
-    ball[3].linearMomentum = SetVector(0, 0, 1.00);
+    ball[3].linearMomentum = SetVector(0.01, 0, 1.00);
+    ball[0].mass = 50;
 
     cam = SetVector(0, 2, 2);
     point = SetVector(0, 0, 0);
