@@ -36,6 +36,7 @@
 
 #define NUM_LIGHTS 1
 #define kBallSize 0.1
+#define BALL_MASS 1.0f
 
 #define abs(x) (x > 0.0? x: -x)
 
@@ -103,7 +104,7 @@ Material ballMt = { { 1.0, 1.0, 1.0, 1.0 }, { 1.0, 1.0, 1.0, 0.0 },
     };
 
 
-enum {kNumBalls = 16}; // Change as desired, max 16
+enum {kNumBalls = 4}; // Change as desired, max 16
 
 //------------------------------Globals---------------------------------
 ModelTexturePair tableAndLegs, tableSurf;
@@ -183,11 +184,25 @@ void updateWorld()
     }
 
     // Detect collisions, calculate speed differences, apply forces
-    for (i = 0; i < kNumBalls; i++)
-        for (j = i+1; j < kNumBalls; j++)
-        {
-            // YOUR CODE HERE
+    for (i = 0; i < kNumBalls; i++) {
+        for (j = i+1; j < kNumBalls; j++) {
+            vec3 positionDiff = VectorSub(ball[i].position, ball[j].position);
+            if (kBallSize*2 >= Norm(positionDiff)) {
+                vec3 collisionNormal = Normalize(positionDiff);
+
+                vec3 paVelocity = CrossProduct(ball[i].angularVelocity, ScalarMult(collisionNormal, kBallSize));
+                vec3 pbVelocity = CrossProduct(ball[j].angularVelocity, ScalarMult(collisionNormal, kBallSize));
+                vec3 relativeVelocity = VectorSub(
+                    VectorAdd(ball[i].v, paVelocity),
+                    VectorAdd(ball[j].v, pbVelocity)
+                );
+                float vrel = DotProduct(collisionNormal, relativeVelocity);
+                float impulseFactor = vrel * BALL_MASS;
+                ball[i].linearMomentum = VectorAdd(ball[i].linearMomentum, ScalarMult(collisionNormal, -impulseFactor));
+                ball[j].linearMomentum = VectorAdd(ball[j].linearMomentum, ScalarMult(collisionNormal, impulseFactor));
+            }
         }
+    }
 
     // Control rotation here to reflect
     // friction against floor, simplified as well as more correct
@@ -305,7 +320,7 @@ void init()
     // Initialize ball data, positions etc
     for (i = 0; i < kNumBalls; i++)
     {
-        ball[i].mass = 1.0;
+        ball[i].mass = BALL_MASS;
         ball[i].position = SetVector(0.0, 0.0, 0.0);
         ball[i].linearMomentum = SetVector(((float)(i % 13))/ 50.0, 0.0, ((float)(i % 15))/50.0);
         ball[i].rotation = IdentityMatrix();
