@@ -196,7 +196,8 @@ void updateWorld()
                     VectorAdd(ball[j].v, pbVelocity)
                 );
                 float vrel = DotProduct(collisionNormal, relativeVelocity);
-                float impulseFactor = 2 * vrel / (1/ball[i].mass + 1/ball[j].mass);
+                float elasticity = 0.8;
+                float impulseFactor = (1 + elasticity) * vrel / (1/ball[i].mass + 1/ball[j].mass);
                 ball[i].linearMomentum = VectorAdd(ball[i].linearMomentum, ScalarMult(collisionNormal, -impulseFactor));
                 ball[j].linearMomentum = VectorAdd(ball[j].linearMomentum, ScalarMult(collisionNormal, impulseFactor));
             }
