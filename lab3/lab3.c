@@ -72,8 +72,8 @@ typedef struct
     GLuint tex;
     GLfloat mass;
 
-    vec3 position, linearMomentum, angularMomentum; // position, linear momentum, angular momentum
-    mat4 rotation; // Rotation
+    vec3 position, linearMomentum, angularMomentum;
+    mat4 rotation;
 
     vec3 F, T; // accumulated force and torque
 
@@ -199,17 +199,19 @@ void updateWorld()
     // Update state, follows the book closely
     for (i = 0; i < kNumBalls; i++)
     {
-        vec3 dX, dP, dL, dO;
+        vec3 deltaPosition, dP, dL, dO;
         mat4 Rd;
 
         // Note: angularVelocity is not set. How do you calculate it?
         // YOUR CODE HERE
 
+        ball[i].angularVelocity = SetVector(ball[i].v.z * 1/kBallSize, 0, -ball[i].v.x * 1/kBallSize);
+
 //		v := P * 1/mass
         ball[i].v = ScalarMult(ball[i].linearMomentum, 1.0/(ball[i].mass));
 //		X := X + v*dT
-        dX = ScalarMult(ball[i].v, deltaT); // dX := v*dT
-        ball[i].position = VectorAdd(ball[i].position, dX); // position := position + deltaPosition
+        deltaPosition = ScalarMult(ball[i].v, deltaT); // deltaPosition := v*dT
+        ball[i].position = VectorAdd(ball[i].position, deltaPosition); // position := position + deltaPosition
 //		R := R + Rd*dT
         dO = ScalarMult(ball[i].angularVelocity, deltaT); // dO := angularVelocity*dT
         Rd = CrossMatrix(dO); // Calc dO, add to R
