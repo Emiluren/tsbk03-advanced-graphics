@@ -81,6 +81,8 @@ vec3 g_normalsRes[kMaxRow][kMaxCorners];
 float g_boneWeights[kMaxRow][kMaxCorners][kMaxBones];
 vec2 g_boneWeightVis[kMaxRow][kMaxCorners]; // Copy data to here to visualize your weights
 
+mat4 boneRestMatrices[kMaxBones];
+
 Model *cylinderModel; // Collects all the above for drawing with glDrawElements
 
 mat4 modelViewMatrix, projectionMatrix;
@@ -122,8 +124,9 @@ void initBoneWeights(void) {
 				//				printf("%d %d %d\n", bone, bone & 1, (bone+1) & 1);
 				if (bone & 1) g_boneWeightVis[row][corner].s += g_boneWeights[row][corner][bone]; // Copy data to here to visualize your weights or anything else
 				if ((bone+1) & 1) g_boneWeightVis[row][corner].t += g_boneWeights[row][corner][bone]; // Copy data to here to visualize your weights
-				//				printf("%d %f\n", bone, g_boneWeights[row][corner][bone]);
+				/* printf("%f ", bone, g_boneWeights[row][corner][bone]); */
 			}
+			/* printf("\n"); */
 
 			// Visar vertexraderna
 			//			g_boneWeightVis[row][corner].s = row & 1; // Copy data to here to visualize your weights or anything else
@@ -231,18 +234,8 @@ void setupBones(void)
 	{
 		g_bones[bone].pos = SetVector((float) bone * BONE_LENGTH, 0.0f, 0.0f);
 		g_bones[bone].rot = IdentityMatrix();
+		boneRestMatrices[bone] = T(bone * -BONE_LENGTH, 0, 0);
 	}
-}
-
-mat4 TByVec(vec3 pos) {
-	return T(pos.x, pos.y, pos.z);
-}
-
-mat4 MatScalarMult(mat4 m, GLfloat f) {
-	for (int i = 0; i < 16; i++) {
-		m.m[i] *= f;
-	}
-	return m;
 }
 
 ///////////////////////////////////////////////////////
@@ -253,31 +246,48 @@ void DeformCylinder()
 {
 	int row, corner;
 
+	printf("\nhej\n\n\n");
+
+	mat4 boneLocalAnimMatrices[kMaxBones];
+	for (int b = 0; b < kMaxBones; ++b) {
+		mat4 translation = T(b == 0 ? 0 : BONE_LENGTH, 0, 0);
+		boneLocalAnimMatrices[b] = Mult(translation, IdentityMatrix());
+
+		if (b == 5) {
+			boneLocalAnimMatrices[b] = Mult(translation, Rz(0.5f));
+		}
+	}
+
 	mat4 boneAnimMatrices[kMaxBones];
-
 	for(int b = 0; b < kMaxBones; ++b){
-		boneAnimMatrices[b] = Mult(T(b == 0 ? 0 : BONE_LENGTH, 0, 0), g_bonesRes[b].rot);
 		if(b == 0){
-			boneAnimMatrices[b] = g_bonesRes[b].rot;
+			boneAnimMatrices[b] = boneLocalAnimMatrices[b];
 		} else {
-		    mat4 translation = T(b == 0 ? 0 : BONE_LENGTH, 0, 0);
-			mat4 translationInverse = T(b == 0 ? 0 : -BONE_LENGTH, 0, 0);
-
 			boneAnimMatrices[b] = Mult(
-				Mult(translation, g_bonesRes[b].rot),
-				Mult(boneAnimMatrices[b-1], translationInverse)
+				boneLocalAnimMatrices[b],
+				boneAnimMatrices[b-1]
 			);
 		}
 	}
 
+	mat4 completeMatrix[kMaxBones];
+	for (int b = 0; b < kMaxBones; ++b) {
+		completeMatrix[b] = Mult(boneAnimMatrices[b], boneRestMatrices[b]);
+		printMat4(completeMatrix[b]);
+	}
+
+
 	// för samtliga vertexar
 	for (row = 0; row < kMaxRow; row++) {
+		//printf("\nrow %d\n", row);
 		for (corner = 0; corner < kMaxCorners; corner++) {
 			g_vertsRes[row][corner] = (vec3){0, 0, 0};
 			for(int b = 0; b < kMaxBones; b++) {
-				mat4 weightedMatrix = MatScalarMult(boneAnimMatrices[b], g_boneWeights[row][corner][b]);
-				g_vertsRes[row][corner] = VectorAdd(g_vertsRes[row][corner], MultVec3(weightedMatrix, g_vertsOrg[row][corner]));
+				vec3 transformedVert = MultVec3(completeMatrix[b], g_vertsOrg[row][corner]);
+				vec3 weightedVert = ScalarMult(transformedVert, g_boneWeights[row][corner][b]);
+				g_vertsRes[row][corner] = VectorAdd(g_vertsRes[row][corner], weightedVert);
 			}
+			//printVec3(g_vertsRes[row][corner]);
 			// ---------=========  UPG 4 ===========---------
 			// TODO: skinna meshen mot alla benen.
 			//
@@ -301,7 +311,7 @@ void animateBones(void)
 {
 	int bone;
 	// Hur mycket kring varje led? ändra gärna.
-	float angleScales[10] = { 1.0f, 0.5f, 10.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };
+	float angleScales[10] = { 0, 0, 0, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };
 
 	float time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
 	// Hur mycket skall vi vrida?
@@ -389,8 +399,8 @@ void keyboardFunc( unsigned char key, int x, int y)
 
 void reshape(GLsizei w, GLsizei h)
 {
-	vec3 cam = {16,0,30};
-	vec3 look = {16,0,0};
+	vec3 cam = {40,0,20};
+	vec3 look = {20,0,0};
 
 	glViewport(0, 0, w, h);
 	GLfloat ratio = (GLfloat) w / (GLfloat) h;
@@ -398,48 +408,48 @@ void reshape(GLsizei w, GLsizei h)
 	modelViewMatrix = lookAt(cam.x, cam.y, cam.z,
 		look.x, look.y, look.z,
 		0,1,0);
-	}
+}
 
-	/////////////////////////////////////////
-	//		M A I N
-	//
-	int main(int argc, char **argv)
-	{
-		glutInit(&argc, argv);
+/////////////////////////////////////////
+//		M A I N
+//
+int main(int argc, char **argv)
+{
+	glutInit(&argc, argv);
 
-		glutInitWindowSize(512, 512);
-		glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
-		glutInitContextVersion(3, 2); // Might not be needed in Linux
-		glutCreateWindow("Them bones, them bones");
+	glutInitWindowSize(512, 512);
+	glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
+	glutInitContextVersion(3, 2); // Might not be needed in Linux
+	glutCreateWindow("Them bones, them bones");
 
-		glutDisplayFunc(DisplayWindow);
-		glutTimerFunc(20, &OnTimer, 0);
-		glutKeyboardFunc( keyboardFunc );
-		glutReshapeFunc(reshape);
+	glutDisplayFunc(DisplayWindow);
+	glutTimerFunc(20, &OnTimer, 0);
+	glutKeyboardFunc( keyboardFunc );
+	glutReshapeFunc(reshape);
 
-		g_shader = loadShaders("shader.vert" , "shader.frag");
+	g_shader = loadShaders("shader.vert" , "shader.frag");
 
-		// Set up depth buffer
-		glEnable(GL_DEPTH_TEST);
+	// Set up depth buffer
+	glEnable(GL_DEPTH_TEST);
 
-		// initiering
-		#ifdef WIN32
-		glewInit();
-		#endif
-		BuildCylinder();
-		setupBones();
-		initBoneWeights();
+	// initiering
+#ifdef WIN32
+	glewInit();
+#endif
+	BuildCylinder();
+	setupBones();
+	initBoneWeights();
 
-		// Build Model from cylinder data
-		cylinderModel = LoadDataToModel(
-			(GLfloat*) g_vertsRes,
-			(GLfloat*) g_normalsRes,
-			(GLfloat*) g_boneWeightVis, // texCoords
-			NULL, // (GLfloat*) g_boneWeights, // colors
-			(GLuint*) g_poly, // indices
-			kMaxRow*kMaxCorners,
-			kMaxg_poly * 3);
+	// Build Model from cylinder data
+	cylinderModel = LoadDataToModel(
+		(GLfloat*) g_vertsRes,
+		(GLfloat*) g_normalsRes,
+		(GLfloat*) g_boneWeightVis, // texCoords
+		NULL, // (GLfloat*) g_boneWeights, // colors
+		(GLuint*) g_poly, // indices
+		kMaxRow*kMaxCorners,
+		kMaxg_poly * 3);
 
-			glutMainLoop();
-			exit(0);
-		}
+	glutMainLoop();
+	exit(0);
+}
