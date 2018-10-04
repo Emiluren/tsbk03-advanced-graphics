@@ -222,6 +222,18 @@ typedef struct Bone
 Bone g_bones[kMaxBones]; // Ursprungsdata, ändra ej
 Bone g_bonesRes[kMaxBones]; // Animerat
 
+vec3 bone_rel_pos(int b) {
+	if (b == kMaxBones - 1) {
+		return g_bones[b].pos;
+	} else {
+		return VectorSub(g_bones[b+1].pos, g_bones[b].pos);
+	}
+}
+
+mat4 TByVec(vec3 pos) {
+	return T(pos.x, pos.y, pos.z);
+}
+
 
 ///////////////////////////////////////////////////////
 //		S E T U P  B O N E S
@@ -230,11 +242,28 @@ void setupBones(void)
 {
 	int bone;
 
+	mat4 boneLocalRest[kMaxBones];
 	for (bone = 0; bone < kMaxBones; bone++)
 	{
 		g_bones[bone].pos = SetVector((float) bone * BONE_LENGTH, 0.0f, 0.0f);
 		g_bones[bone].rot = IdentityMatrix();
-		boneRestMatrices[bone] = T(bone * -BONE_LENGTH, 0, 0);
+		
+		boneLocalRest[bone] = TByVec(bone_rel_pos(bone));
+	}
+
+	for (bone = 0; bone < kMaxBones; bone++) {
+		boneLocalRest[bone] = TByVec(bone_rel_pos(bone));
+	}
+
+	for (int b = kMaxBones - 1; b >= 0; --b) {
+		if(b == kMaxBones - 1){
+			boneRestMatrices[b] = InvertMat4(boneLocalRest[b]);
+		} else {
+			boneRestMatrices[b] = Mult(
+				InvertMat4(boneLocalRest[b]),
+				boneRestMatrices[b+1]
+			);
+		}
 	}
 }
 
@@ -250,12 +279,8 @@ void DeformCylinder()
 
 	mat4 boneLocalAnimMatrices[kMaxBones];
 	for (int b = 0; b < kMaxBones; ++b) {
-		mat4 translation = T(b == 0 ? 0 : BONE_LENGTH, 0, 0);
-		boneLocalAnimMatrices[b] = Mult(translation, IdentityMatrix());
-
-		if (b == 5) {
-			boneLocalAnimMatrices[b] = Mult(translation, Rz(0.5f));
-		}
+		mat4 translation = TByVec(bone_rel_pos(b));
+		boneLocalAnimMatrices[b] = Mult(translation, g_bonesRes[b].rot);
 	}
 
 	mat4 boneAnimMatrices[kMaxBones];
@@ -311,7 +336,7 @@ void animateBones(void)
 {
 	int bone;
 	// Hur mycket kring varje led? ändra gärna.
-	float angleScales[10] = { 0, 0, 0, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };
+	float angleScales[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 
 	float time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
 	// Hur mycket skall vi vrida?
@@ -399,8 +424,8 @@ void keyboardFunc( unsigned char key, int x, int y)
 
 void reshape(GLsizei w, GLsizei h)
 {
-	vec3 cam = {40,0,20};
-	vec3 look = {20,0,0};
+	vec3 cam = {0,0,100};
+	vec3 look = {10,0,0};
 
 	glViewport(0, 0, w, h);
 	GLfloat ratio = (GLfloat) w / (GLfloat) h;
