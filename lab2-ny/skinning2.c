@@ -222,11 +222,11 @@ typedef struct Bone
 Bone g_bones[kMaxBones]; // Ursprungsdata, ändra ej
 Bone g_bonesRes[kMaxBones]; // Animerat
 
-vec3 bone_rel_pos(int b) {
-	if (b == kMaxBones - 1) {
-		return g_bones[b].pos;
+mat4 boneTranslation(int b) {
+	if (b == 0) {
+		return T(0, 0, 0);
 	} else {
-		return VectorSub(g_bones[b+1].pos, g_bones[b].pos);
+		return T(BONE_LENGTH, 0, 0);
 	}
 }
 
@@ -242,28 +242,12 @@ void setupBones(void)
 {
 	int bone;
 
-	mat4 boneLocalRest[kMaxBones];
 	for (bone = 0; bone < kMaxBones; bone++)
 	{
 		g_bones[bone].pos = SetVector((float) bone * BONE_LENGTH, 0.0f, 0.0f);
 		g_bones[bone].rot = IdentityMatrix();
 		
-		boneLocalRest[bone] = TByVec(bone_rel_pos(bone));
-	}
-
-	for (bone = 0; bone < kMaxBones; bone++) {
-		boneLocalRest[bone] = TByVec(bone_rel_pos(bone));
-	}
-
-	for (int b = kMaxBones - 1; b >= 0; --b) {
-		if(b == kMaxBones - 1){
-			boneRestMatrices[b] = InvertMat4(boneLocalRest[b]);
-		} else {
-			boneRestMatrices[b] = Mult(
-				InvertMat4(boneLocalRest[b]),
-				boneRestMatrices[b+1]
-			);
-		}
+		boneRestMatrices[bone] = T(-bone * BONE_LENGTH, 0.0f, 0.0f);
 	}
 }
 
@@ -275,36 +259,28 @@ void DeformCylinder()
 {
 	int row, corner;
 
-	printf("\nhej\n\n\n");
-
 	mat4 boneLocalAnimMatrices[kMaxBones];
 	for (int b = 0; b < kMaxBones; ++b) {
-		mat4 translation = TByVec(bone_rel_pos(b));
+		mat4 translation = boneTranslation(b);
 		boneLocalAnimMatrices[b] = Mult(translation, g_bonesRes[b].rot);
 	}
 
 	mat4 boneAnimMatrices[kMaxBones];
-	for(int b = 0; b < kMaxBones; ++b){
-		if(b == 0){
-			boneAnimMatrices[b] = boneLocalAnimMatrices[b];
-		} else {
-			boneAnimMatrices[b] = Mult(
-				boneLocalAnimMatrices[b],
-				boneAnimMatrices[b-1]
-			);
-		}
+	boneAnimMatrices[0] = boneLocalAnimMatrices[0];
+	for(int b = 1; b < kMaxBones; ++b){
+		boneAnimMatrices[b] = Mult(
+			boneAnimMatrices[b-1],
+			boneLocalAnimMatrices[b]
+		);
 	}
 
 	mat4 completeMatrix[kMaxBones];
 	for (int b = 0; b < kMaxBones; ++b) {
 		completeMatrix[b] = Mult(boneAnimMatrices[b], boneRestMatrices[b]);
-		printMat4(completeMatrix[b]);
 	}
-
 
 	// för samtliga vertexar
 	for (row = 0; row < kMaxRow; row++) {
-		//printf("\nrow %d\n", row);
 		for (corner = 0; corner < kMaxCorners; corner++) {
 			g_vertsRes[row][corner] = (vec3){0, 0, 0};
 			for(int b = 0; b < kMaxBones; b++) {
@@ -312,7 +288,6 @@ void DeformCylinder()
 				vec3 weightedVert = ScalarMult(transformedVert, g_boneWeights[row][corner][b]);
 				g_vertsRes[row][corner] = VectorAdd(g_vertsRes[row][corner], weightedVert);
 			}
-			//printVec3(g_vertsRes[row][corner]);
 			// ---------=========  UPG 4 ===========---------
 			// TODO: skinna meshen mot alla benen.
 			//
@@ -424,7 +399,7 @@ void keyboardFunc( unsigned char key, int x, int y)
 
 void reshape(GLsizei w, GLsizei h)
 {
-	vec3 cam = {0,0,100};
+	vec3 cam = {0,0,20};
 	vec3 look = {10,0,0};
 
 	glViewport(0, 0, w, h);
