@@ -121,7 +121,7 @@ void SpriteBehavior() {
 	do {
 		mySprite->speed = mySprite->newSpeed;
 		if(mySprite->face == metalFace){
-			float angle = (random() % 180) / 3.1415f;
+			float angle = (rand() % 180) / 3.1415f;
 			mySprite->speed.h += cos(angle) * maxShenanigans;
 			mySprite->speed.v += sin(angle) * maxShenanigans;
 		}

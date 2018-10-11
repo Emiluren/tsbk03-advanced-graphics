@@ -39,6 +39,8 @@
 
 #define abs(x) (x > 0.0? x: -x)
 
+const float friction = 0;
+
 void onTimer(int value);
 
 static double startTime = 0;
@@ -199,7 +201,7 @@ void updateWorld()
                     VectorAdd(ball[j].v, pbVelocity)
                 );
                 float vrel = DotProduct(collisionNormal, relativeVelocity);
-                float elasticity = 0.8;
+                float elasticity = 1.0;
                 float impulseFactor = (1 + elasticity) * vrel / (1/ball[i].mass + 1/ball[j].mass);
                 ball[i].linearMomentum = VectorAdd(ball[i].linearMomentum, ScalarMult(collisionNormal, -impulseFactor));
                 ball[j].linearMomentum = VectorAdd(ball[j].linearMomentum, ScalarMult(collisionNormal, impulseFactor));
@@ -211,7 +213,28 @@ void updateWorld()
     // friction against floor, simplified as well as more correct
     for (i = 0; i < kNumBalls; i++)
     {
-        // YOUR CODE HERE
+        //ball[i].angularVelocity = SetVector(ball[i].v.z * 1/kBallSize, 0, -ball[i].v.x * 1/kBallSize);
+
+        //printf("%f %f %f\n", inertia, ball[i].mass, pow(kBallSize, 2));
+        //printVec3(ball[i].angularVelocity);
+
+        vec3 surfaceVelocity = VectorAdd(
+            ball[i].v,
+            CrossProduct(ball[i].angularVelocity, SetVector(0, -kBallSize, 0))
+        );
+
+        /*float speed = Norm(surfaceVelocity);
+        if (speed > 0) {
+            ball[i].F = SetVector(
+                friction * surfaceVelocity.x / speed,
+                0,
+                friction * surfaceVelocity.z / speed
+            );
+            ball[i].T = CrossProduct(ScalarMult(ball[i].F, -1), SetVector(0, kBallSize, 0));
+        }*/
+
+        ball[i].F = ScalarMult(surfaceVelocity, -friction * ball[i].mass * 10);
+        ball[i].T = CrossProduct(ball[i].F, SetVector(0, kBallSize, 0));
     }
 
     // Update state, follows the book closely
@@ -222,11 +245,11 @@ void updateWorld()
 
         // Note: angularVelocity is not set. How do you calculate it?
         // YOUR CODE HERE
-
-        ball[i].angularVelocity = SetVector(ball[i].v.z * 1/kBallSize, 0, -ball[i].v.x * 1/kBallSize);
-
+        float inertia = 2.0f/5.0f * ball[i].mass * pow(kBallSize, 2);
+        ball[i].angularVelocity = ScalarMult(ball[i].angularMomentum, 1/inertia);
 //		v := P * 1/mass
         ball[i].v = ScalarMult(ball[i].linearMomentum, 1.0/(ball[i].mass));
+
 //		X := X + v*dT
         deltaPosition = ScalarMult(ball[i].v, deltaT); // deltaPosition := v*dT
         ball[i].position = VectorAdd(ball[i].position, deltaPosition); // position := position + deltaPosition
@@ -324,7 +347,7 @@ void init()
     for (i = 0; i < kNumBalls; i++)
     {
         ball[i].mass = 1.0;
-        ball[i].position = SetVector(0.0, 0.0, 0.0);
+        ball[i].position = SetVector((i % 4) * kBallSize, 0.0, (i / 4) * kBallSize);
         ball[i].linearMomentum = SetVector(((float)(i % 13))/ 50.0, 0.0, ((float)(i % 15))/50.0);
         ball[i].rotation = IdentityMatrix();
     }
@@ -335,8 +358,8 @@ void init()
     ball[0].linearMomentum = SetVector(0, 0, 0);
     ball[1].linearMomentum = SetVector(0, 0, 0);
     ball[2].linearMomentum = SetVector(0, 0, 0);
-    ball[3].linearMomentum = SetVector(0.01, 0, 1.00);
-    ball[0].mass = 50;
+    ball[3].linearMomentum = SetVector(0, 0, -1.00);
+    ball[3].mass = 1;
 
     cam = SetVector(0, 2, 2);
     point = SetVector(0, 0, 0);

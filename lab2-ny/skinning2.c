@@ -311,7 +311,7 @@ void animateBones(void)
 {
 	int bone;
 	// Hur mycket kring varje led? ändra gärna.
-	float angleScales[10] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+	float angleScales[10] = { 1, 1, 1, 1, 1, -1, -1, -1, -1, -1 };
 
 	float time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
 	// Hur mycket skall vi vrida?
@@ -399,7 +399,7 @@ void keyboardFunc( unsigned char key, int x, int y)
 
 void reshape(GLsizei w, GLsizei h)
 {
-	vec3 cam = {0,0,20};
+	vec3 cam = {0,0,40};
 	vec3 look = {10,0,0};
 
 	glViewport(0, 0, w, h);
