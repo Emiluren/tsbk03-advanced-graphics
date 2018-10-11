@@ -186,19 +186,19 @@ void Key(unsigned char key,
 		printf("cohesionFactor now: %f\n", cohesionFactor);
 		break;
 	case 's':
-		sheeparationFactor -= 0.999f;
+		sheeparationFactor *= 0.999f;
 		printf("sheeparationFactor now: %f\n", sheeparationFactor);
 		break;
 	case 'S':
-		sheeparationFactor += 1.001;
+		sheeparationFactor *= 1.001;
 		printf("sheeparationFactor now: %f\n", sheeparationFactor);
 		break;
 	case 'a':
-		alignmentFactor -= 0.999;
+		alignmentFactor *= 0.999;
 		printf("alignmentFactor now: %f\n", alignmentFactor);
 		break;
 	case 'A':
-		cohesionFactor += 1.001;
+		cohesionFactor *= 1.001;
 		printf("alignmentFactor now: %f\n", alignmentFactor);
 		break;
     case 0x1b:
