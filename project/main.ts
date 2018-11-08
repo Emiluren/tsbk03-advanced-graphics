@@ -52,7 +52,7 @@ function createTreeMesh(): WebGLVertexArrayObject {
  * @param {string} source - The shader source code.
  * @returns {WebGLShader} The OpenGL shader id of the compiled shader
  */
-function createShader(type, source) {
+function createShader(type: number, source: string): WebGLShader {
     var shader = gl.createShader(type);
     gl.shaderSource(shader, source);
     gl.compileShader(shader);
@@ -69,7 +69,7 @@ function createShader(type, source) {
     }
 }
 
-function createProgram(shaderSources) {
+function createProgram(shaderSources: Array<Resource>): WebGLProgram {
     let shaderTypes = {
         "shader.vert": gl.VERTEX_SHADER,
         "shader.frag": gl.FRAGMENT_SHADER
@@ -96,7 +96,7 @@ function createProgram(shaderSources) {
     }
 }
 
-function init(loadedResources) {
+function init(loadedResources: Array<Resource>): void {
     shaderProgram = createProgram(loadedResources);
 
     treeVao = createTreeMesh();
@@ -104,7 +104,7 @@ function init(loadedResources) {
     requestAnimationFrame(render);
 }
 
-function onBodyLoad() {
+function onBodyLoad(): void {
     canvas = document.querySelector("#glCanvas");
     gl = canvas.getContext("webgl2");
 
