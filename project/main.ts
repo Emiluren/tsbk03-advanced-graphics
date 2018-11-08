@@ -1,4 +1,4 @@
-var canvas, gl;
+var canvas : HTMLCanvasElement, gl;
 
 var treeVao, shaderProgram;
 
@@ -6,20 +6,25 @@ let resources = Promise.all(
     ["shader.vert", "shader.frag"].map(fetchFiles)
 );
 
-function fetchFiles(filename) {
+interface Resource {
+    filename: string;
+    contents: string;
+}
+
+function fetchFiles(filename: string): Promise<Resource> {
     return fetch(filename).then(resp => resp.text().then(function(text) {
         return { filename: filename, contents: text };
     }));
 }
 
-function render(time) {
+function render(time: number): void {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(shaderProgram);
     gl.bindVertexArray(treeVao);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
-function createTreeMesh() {
+function createTreeMesh(): WebGLVertexArrayObject {
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 

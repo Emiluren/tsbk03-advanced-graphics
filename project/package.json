@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@types/es6-promise": "^3.3.0",
+    "@types/webgl2": "0.0.4"
+  }
+}
