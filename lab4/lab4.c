@@ -21,7 +21,7 @@
 // Lägg till egna globaler här efter behov.
 TextureData *sheepFace, *metalFace, *dogFace, *foodFace;
 //Decides maximum shenanigans per tick that may be performed by black sheep.
-const float maxShenanigans = 0.1f;
+const float maxShenanigans = 0.001f;
 const int blackSheepChance = 20;
 
 float cohesionFactor = 0.0012f;
@@ -121,9 +121,11 @@ void SpriteBehavior() {
 	do {
 		mySprite->speed = mySprite->newSpeed;
 		if(mySprite->face == metalFace){
-			float angle = (random() % 180) / 3.1415f;
-			mySprite->speed.h += cos(angle) * maxShenanigans;
-			mySprite->speed.v += sin(angle) * maxShenanigans;
+			float angle = (random() % 180) / 3.1415f * maxShenanigans;
+			mySprite->speed.h = cos(angle) * mySprite->speed.h - sin(angle) * mySprite->speed.v;
+			mySprite->speed.v = sin(angle) * mySprite->speed.h + cos(angle) * mySprite->speed.v;
+
+			//mySprite->speed.h += rand()
 		}
 		mySprite = mySprite->next;
 	} while (mySprite != NULL);
