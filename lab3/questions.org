@@ -1,0 +1,17 @@
+* Vad blir den förenklade formeln?
+j = -(epsilon + 1) * v * Ma * Mb / (Ma + Mb)
+
+* Vilket av testfallen var svårast att uppfylla, och varför?
+Testfall 1 för att vår kollision inte fungerade först
+
+
+* Vad blir tröghetsmatrisen för denna modell?
+I = 2/5 * m * R^2
+J = [ I 0 0; 0 I 0; 0 0 I ]
+
+* Hur kan denna tröghetsmatris på enklast möjliga sätt användas för att beräkna rotationshastigheten omega från rörelsemängdsmomentet L?
+omega = J^-1 * L
+
+* För att nu beräkna en kraft måste vi beräkna hastighetsskillnaden i bollens kontaktpunkt med underlaget. Hur finner vi denna hastighetsskillnad?
+vdiffx = vx - omegaz * r
+vdiffz = vz - omegax * r

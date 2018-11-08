@@ -126,6 +126,10 @@ void SpriteBehavior() {
 			mySprite->speed.v = sin(angle) * mySprite->speed.h + cos(angle) * mySprite->speed.v;
 
 			//mySprite->speed.h += rand()
+			// Old version?
+			// float angle = (rand() % 180) / 3.1415f;
+			// mySprite->speed.h += cos(angle) * maxShenanigans;
+			// mySprite->speed.v += sin(angle) * maxShenanigans;
 		}
 		mySprite = mySprite->next;
 	} while (mySprite != NULL);
