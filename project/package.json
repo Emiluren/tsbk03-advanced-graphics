@@ -2,5 +2,10 @@
   "dependencies": {
     "@types/es6-promise": "^3.3.0",
     "@types/webgl2": "0.0.4"
+  },
+   "devDependencies": {
+  //   "awesome-typescript-loader": "^5.2.1",
+  //   "source-map-loader": "^0.2.4",
+     "typescript": "^3.1.6"
   }
 }
