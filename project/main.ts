@@ -1,26 +1,34 @@
+import vertexShader from './shader.vert'
+import fragmentShader from './shader.frag'
+
 var canvas : HTMLCanvasElement, gl;
 
 var treeVao, shaderProgram;
-
-let resources = Promise.all(
-    ["shader.vert", "shader.frag"].map(fetchFiles)
-);
 
 interface Resource {
     filename: string;
     contents: string;
 }
 
-function fetchFiles(filename: string): Promise<Resource> {
-    return fetch(filename).then(resp => resp.text().then(function(text) {
-        return { filename: filename, contents: text };
-    }));
+interface Vec3 {
+    x: number, y: number, z: number
+}
+
+interface Branch {
+    endPoint: Vec3;
+    children: Array<Branch>;
+}
+
+let testTree = {
+    endPoint: { x: 0, y: 0.1, z: 0 },
+    children: []
 }
 
 function render(time: number): void {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(shaderProgram);
     gl.bindVertexArray(treeVao);
+    //gl.drawElements(gl.TRIANGLES, 0, 3);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
@@ -28,20 +36,26 @@ function createTreeMesh(): WebGLVertexArrayObject {
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
-    let positionLocation = gl.getAttribLocation(shaderProgram, "a_position");
-    let positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-
     let vertexPositions = new Float32Array([
         -0.5, -0.5,
         0.5, -0.5,
         0, 0.5
     ]);
+
+    let positionLocation = gl.getAttribLocation(shaderProgram, "a_position");
+    let positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertexPositions, gl.STATIC_DRAW);
 
     gl.enableVertexAttribArray(positionLocation);
     let size = 2, type = gl.FLOAT, normalize = false, stride = 0, offset = 0;
     gl.vertexAttribPointer(positionLocation, size, type, normalize, stride, offset);
+
+    let indices = new Uint16Array([
+        0, 1, 2
+    ]);
+    let indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
     return vao;
 }
@@ -96,15 +110,7 @@ function createProgram(shaderSources: Array<Resource>): WebGLProgram {
     }
 }
 
-function init(loadedResources: Array<Resource>): void {
-    shaderProgram = createProgram(loadedResources);
-
-    treeVao = createTreeMesh();
-
-    requestAnimationFrame(render);
-}
-
-function onBodyLoad(): void {
+function onLoad(): void {
     canvas = document.querySelector("#glCanvas");
     gl = canvas.getContext("webgl2");
 
@@ -114,5 +120,14 @@ function onBodyLoad(): void {
     }
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    resources.then(init);
+    shaderProgram = createProgram([
+        { filename: "shader.vert", contents: vertexShader },
+        { filename: "shader.frag", contents: fragmentShader }
+    ]);
+
+    treeVao = createTreeMesh();
+
+    requestAnimationFrame(render);
 }
+
+window.onload = () => onLoad();
