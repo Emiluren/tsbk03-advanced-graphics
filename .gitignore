@@ -1,5 +1,6 @@
 *.tar
 *~
+*.map
 ._*
 Lab0/lab0
 lab1-1/lab1-1
