@@ -24,23 +24,43 @@ let testTree = {
     children: []
 }
 
+let segmentIndices = [0, 1, 2, 1, 2, 3];
+let BRANCH_SEGMENTS = 8;
+let NUM_INDICES = segmentIndices.length * (BRANCH_SEGMENTS - 1);
+
 function render(time: number): void {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(shaderProgram);
     gl.bindVertexArray(treeVao);
-    //gl.drawElements(gl.TRIANGLES, 0, 3);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.drawElements(gl.TRIANGLES, NUM_INDICES, gl.UNSIGNED_SHORT, 0);
+    //gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
 function createTreeMesh(): WebGLVertexArrayObject {
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
-    let vertexPositions = new Float32Array([
-        -0.5, -0.5,
-        0.5, -0.5,
-        0, 0.5
-    ]);
+    let vertexPositions = new Float32Array(BRANCH_SEGMENTS * 6);
+    let indices = new Uint16Array(NUM_INDICES);
+
+    for (let i = 0; i < BRANCH_SEGMENTS; i++) {
+        let angle = i / BRANCH_SEGMENTS * (2 * Math.PI);
+        let y = Math.cos(angle) * 0.1;
+        let z = Math.sin(angle) * 0.1;
+
+        vertexPositions[i * 6] = -0.5;
+        vertexPositions[i * 6 + 1] = y;
+        vertexPositions[i * 6 + 2] = z;
+
+        vertexPositions[i * 6 + 3] = 0.5;
+        vertexPositions[i * 6 + 4] = y;
+        vertexPositions[i * 6 + 5] = z;
+
+        for (let j = 0; j < segmentIndices.length; j++) {
+            indices[i * segmentIndices.length + j] =
+                segmentIndices[j] + i * 2 % (BRANCH_SEGMENTS * 2);
+        }
+    }
 
     let positionLocation = gl.getAttribLocation(shaderProgram, "a_position");
     let positionBuffer = gl.createBuffer();
@@ -48,14 +68,12 @@ function createTreeMesh(): WebGLVertexArrayObject {
     gl.bufferData(gl.ARRAY_BUFFER, vertexPositions, gl.STATIC_DRAW);
 
     gl.enableVertexAttribArray(positionLocation);
-    let size = 2, type = gl.FLOAT, normalize = false, stride = 0, offset = 0;
+    let size = 3, type = gl.FLOAT, normalize = false, stride = 0, offset = 0;
     gl.vertexAttribPointer(positionLocation, size, type, normalize, stride, offset);
 
-    let indices = new Uint16Array([
-        0, 1, 2
-    ]);
     let indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
 
     return vao;
 }
