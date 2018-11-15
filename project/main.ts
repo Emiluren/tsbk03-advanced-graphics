@@ -1,6 +1,8 @@
 import vertexShader from './shader.vert'
 import fragmentShader from './shader.frag'
 
+import vec3 from 'tsm/src/vec3'
+
 //List where each index n specifies how many times a stem generate a clone on
 //average for a stem with n parents.
 const STEM_BRANCHING_FACTORS: number[] = [1, 1, 1, 1, 0];
@@ -18,12 +20,8 @@ interface Resource {
     contents: string;
 }
 
-interface Vec3 {
-    x: number, y: number, z: number
-}
-
 interface Branch {
-    endPoint: Vec3;
+    endPoint: vec3;
     children: Array<Branch>;
 }
 

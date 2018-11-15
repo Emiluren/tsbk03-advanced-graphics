@@ -1,0 +1,3 @@
+[submodule "project/tsm"]
+	path = project/tsm
+	url = git@github.com:tlaukkan/tsm.git
