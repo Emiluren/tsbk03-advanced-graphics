@@ -1,6 +1,7 @@
 import vertexShader from './shader.vert'
 import fragmentShader from './shader.frag'
 
+import mat4 from 'tsm/src/mat4'
 import vec3 from 'tsm/src/vec3'
 
 //List where each index n specifies how many times a stem generate a clone on
@@ -13,7 +14,33 @@ const BRANCHING_FACTORS: number[] = [0, 2, 3, 4, 1, 1];
 
 var canvas : HTMLCanvasElement, gl;
 
-var treeVao, shaderProgram;
+var treeVao, shaderProgram, matLocation;
+
+let leftPressed = false;
+let rightPressed = false;
+
+function handleKeyEvent(keyCode: string, newState: boolean) {
+    switch (keyCode) {
+        case "KeyA":
+        case "ArrowLeft":
+            leftPressed = newState;
+            break;
+        case "KeyD":
+        case "ArrowRight":
+            rightPressed = newState;
+            break;
+    }    
+}
+
+window.addEventListener('keydown', (event) => {
+    handleKeyEvent(event.code, true);
+    event.preventDefault();
+}, true);
+
+window.addEventListener('keyup', (event) => {
+    handleKeyEvent(event.code, false);
+    event.preventDefault();
+}, true);
 
 interface Resource {
     filename: string;
@@ -34,12 +61,36 @@ let segmentIndices = [0, 1, 2, 1, 2, 3];
 let BRANCH_SEGMENTS = 8;
 let NUM_INDICES = segmentIndices.length * (BRANCH_SEGMENTS - 1);
 
+let x = 0;
+
+let lastRenderTime = 0;
 function render(time: number): void {
+    let dt = Math.min(time - lastRenderTime, 1 / 30);
+    lastRenderTime = dt;
+
+    let vx = 0;
+    if (leftPressed) {
+        vx -= 1;
+    }
+    if (rightPressed) {
+        vx += 1;
+    }
+    x += vx * dt;
+
+    let viewMatrix = mat4.lookAt(
+        new vec3([x, 0, 1]),
+        new vec3([0, 0, 0]),
+        new vec3([0, 1, 0])
+    );
+
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(shaderProgram);
     gl.bindVertexArray(treeVao);
+    gl.uniformMatrix4fv(matLocation, false, viewMatrix.all());
     gl.drawElements(gl.TRIANGLES, NUM_INDICES, gl.UNSIGNED_SHORT, 0);
     //gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    requestAnimationFrame(render);
 }
 
 function createTreeMesh(): WebGLVertexArrayObject {
@@ -150,6 +201,7 @@ function onLoad(): void {
     ]);
 
     treeVao = createTreeMesh();
+    matLocation = gl.getUniformLocation(shaderProgram, "mat");
 
     requestAnimationFrame(render);
 }
