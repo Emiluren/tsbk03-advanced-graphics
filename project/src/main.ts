@@ -57,28 +57,32 @@ let testTree = {
     children: []
 }
 
-let segmentIndices = [0, 1, 2, 1, 2, 3];
-let BRANCH_SEGMENTS = 8;
-let NUM_INDICES = segmentIndices.length * (BRANCH_SEGMENTS - 1);
+let branchSideIndices = [0, 1, 2, 1, 2, 3];
+let BRANCH_RESOLUTION = 8;
+let NUM_INDICES = branchSideIndices.length * (BRANCH_RESOLUTION - 1);
 
-let x = 0;
+let angle = 0;
 
 let lastRenderTime = 0;
 function render(time: number): void {
-    let dt = Math.min(time - lastRenderTime, 1 / 30);
+    let dt = Math.min((time - lastRenderTime) / 1000, 1 / 30);
     lastRenderTime = dt;
 
-    let vx = 0;
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+    let v = 0;
     if (leftPressed) {
-        vx -= 1;
+        v -= 0.01;
     }
     if (rightPressed) {
-        vx += 1;
+        v += 0.01;
     }
-    x += vx * dt;
+    angle += v * dt;
 
     let viewMatrix = mat4.lookAt(
-        new vec3([x, 0, 1]),
+        new vec3([Math.sin(angle), 0, Math.cos(angle)]),
         new vec3([0, 0, 0]),
         new vec3([0, 1, 0])
     );
@@ -97,11 +101,11 @@ function createTreeMesh(): WebGLVertexArrayObject {
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
-    let vertexPositions = new Float32Array(BRANCH_SEGMENTS * 6);
+    let vertexPositions = new Float32Array(BRANCH_RESOLUTION * 6);
     let indices = new Uint16Array(NUM_INDICES);
 
-    for (let i = 0; i < BRANCH_SEGMENTS; i++) {
-        let angle = i / BRANCH_SEGMENTS * (2 * Math.PI);
+    for (let i = 0; i < BRANCH_RESOLUTION; i++) {
+        let angle = i / BRANCH_RESOLUTION * (2 * Math.PI);
         let y = Math.cos(angle) * 0.1;
         let z = Math.sin(angle) * 0.1;
 
@@ -113,9 +117,9 @@ function createTreeMesh(): WebGLVertexArrayObject {
         vertexPositions[i * 6 + 4] = y;
         vertexPositions[i * 6 + 5] = z;
 
-        for (let j = 0; j < segmentIndices.length; j++) {
-            indices[i * segmentIndices.length + j] =
-                segmentIndices[j] + i * 2 % (BRANCH_SEGMENTS * 2);
+        for (let j = 0; j < branchSideIndices.length; j++) {
+            indices[i * branchSideIndices.length + j] =
+                branchSideIndices[j] + i * 2 % (BRANCH_RESOLUTION * 2);
         }
     }
 
