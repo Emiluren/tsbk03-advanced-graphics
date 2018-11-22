@@ -66,7 +66,7 @@ let angle = 0;
 let lastRenderTime = 0;
 function render(time: number): void {
     let dt = Math.min((time - lastRenderTime) / 1000, 1 / 30);
-    lastRenderTime = dt;
+    lastRenderTime = time;
 
     canvas.width  = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -74,10 +74,10 @@ function render(time: number): void {
 
     let v = 0;
     if (leftPressed) {
-        v -= 0.01;
+        v -= 2;
     }
     if (rightPressed) {
-        v += 0.01;
+        v += 2;
     }
     angle += v * dt;
 
