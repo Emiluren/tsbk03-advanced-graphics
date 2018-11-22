@@ -18,6 +18,8 @@ var treeVao, shaderProgram, matLocation;
 
 let leftPressed = false;
 let rightPressed = false;
+let upPressed = false;
+let downPressed = false;
 
 function handleKeyEvent(keyCode: string, newState: boolean) {
     switch (keyCode) {
@@ -28,6 +30,14 @@ function handleKeyEvent(keyCode: string, newState: boolean) {
         case "KeyD":
         case "ArrowRight":
             rightPressed = newState;
+            break;
+        case "KeyW":
+        case "ArrowUp":
+            upPressed = newState;
+            break;
+        case "KeyS":
+        case "ArrowDown":
+            downPressed = newState;
             break;
     }    
 }
@@ -63,6 +73,7 @@ let NUM_INDICES = branchSideIndices.length * (BRANCH_RESOLUTION - 1);
 
 let angle = 0;
 let radius = 2;
+let y = 0;
 
 let lastRenderTime = 0;
 function render(time: number): void {
@@ -74,17 +85,26 @@ function render(time: number): void {
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     let proj = mat4.perspective(45, canvas.width / canvas.height, 0.1, 100);
 
-    let v = 0;
+    let angularVelocity = 0;
     if (leftPressed) {
-        v -= 2;
+        angularVelocity -= 2;
     }
     if (rightPressed) {
-        v += 2;
+        angularVelocity += 2;
     }
-    angle += v * dt;
+    angle += angularVelocity * dt;
+
+    let vy = 0;
+    if (upPressed) {
+        vy += 2;
+    }
+    if (downPressed) {
+        vy -= 2;
+    }
+    y += vy * dt;
 
     let viewMatrix = mat4.lookAt(
-        new vec3([Math.sin(angle) * radius, 0, Math.cos(angle) * radius]),
+        new vec3([Math.sin(angle) * radius, y, Math.cos(angle) * radius]),
         new vec3([0, 0, 0]),
         new vec3([0, 1, 0])
     );
