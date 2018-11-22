@@ -62,6 +62,7 @@ let BRANCH_RESOLUTION = 8;
 let NUM_INDICES = branchSideIndices.length * (BRANCH_RESOLUTION - 1);
 
 let angle = 0;
+let radius = 2;
 
 let lastRenderTime = 0;
 function render(time: number): void {
@@ -71,6 +72,7 @@ function render(time: number): void {
     canvas.width  = window.innerWidth;
     canvas.height = window.innerHeight;
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    let proj = mat4.perspective(45, canvas.width / canvas.height, 0.1, 100);
 
     let v = 0;
     if (leftPressed) {
@@ -82,15 +84,16 @@ function render(time: number): void {
     angle += v * dt;
 
     let viewMatrix = mat4.lookAt(
-        new vec3([Math.sin(angle), 0, Math.cos(angle)]),
+        new vec3([Math.sin(angle) * radius, 0, Math.cos(angle) * radius]),
         new vec3([0, 0, 0]),
         new vec3([0, 1, 0])
     );
+    proj.multiply(viewMatrix);
 
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(shaderProgram);
     gl.bindVertexArray(treeVao);
-    gl.uniformMatrix4fv(matLocation, false, viewMatrix.all());
+    gl.uniformMatrix4fv(matLocation, false, proj.all());
     gl.drawElements(gl.TRIANGLES, NUM_INDICES, gl.UNSIGNED_SHORT, 0);
     //gl.drawArrays(gl.TRIANGLES, 0, 3);
 
