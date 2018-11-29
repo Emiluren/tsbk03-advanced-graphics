@@ -68,9 +68,8 @@ let testTree = {
 }
 
 let branchSideIndices = [0, 1, 2, 1, 2, 3];
-let BRANCH_RESOLUTION = 8;
-let NUM_VERTICES = BRANCH_RESOLUTION * 6; // Two sides with xyz-values
-let NUM_INDICES = branchSideIndices.length * (BRANCH_RESOLUTION - 1);
+let BRANCH_RESOLUTION = 8; // Number of vertices on each side of a branch
+let NUM_INDICES = branchSideIndices.length * BRANCH_RESOLUTION;
 
 let angle = 0;
 let radius = 2;
@@ -136,8 +135,9 @@ function createTreeMesh(): WebGLVertexArrayObject {
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
-    let vertexPositions = new Float32Array(NUM_VERTICES);
-    let vertexNormals = new Float32Array(NUM_VERTICES);
+    let VERTEX_ARRAY_SIZE = BRANCH_RESOLUTION * 6; // Two sides with xyz-values
+    let vertexPositions = new Float32Array(VERTEX_ARRAY_SIZE);
+    let vertexNormals = new Float32Array(VERTEX_ARRAY_SIZE);
     let indices = new Uint16Array(NUM_INDICES);
 
     for (let i = 0; i < BRANCH_RESOLUTION; i++) {
@@ -163,10 +163,12 @@ function createTreeMesh(): WebGLVertexArrayObject {
 
         // Indices
         for (let j = 0; j < branchSideIndices.length; j++) {
+            // Generate triangles for the last row so it connects with the first
             indices[i * branchSideIndices.length + j] =
-                branchSideIndices[j] + i * 2 % (BRANCH_RESOLUTION * 2);
+                (branchSideIndices[j] + i * 2) % 16;
         }
     }
+    console.log(indices);
 
     bufferVec3Array("a_position", vertexPositions);
     bufferVec3Array("a_normal", vertexNormals);
