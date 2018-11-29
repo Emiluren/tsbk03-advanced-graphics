@@ -14,7 +14,7 @@ const BRANCHING_FACTORS: number[] = [0, 2, 3, 4, 1, 1];
 
 var canvas : HTMLCanvasElement, gl;
 
-var treeVao, shaderProgram, matLocation;
+var treeVao, shaderProgram, mvpLocation, worldLocation;
 
 let leftPressed = false;
 let rightPressed = false;
@@ -69,6 +69,7 @@ let testTree = {
 
 let branchSideIndices = [0, 1, 2, 1, 2, 3];
 let BRANCH_RESOLUTION = 8;
+let NUM_VERTICES = BRANCH_RESOLUTION * 6; // Two sides with xyz-values
 let NUM_INDICES = branchSideIndices.length * (BRANCH_RESOLUTION - 1);
 
 let angle = 0;
@@ -110,21 +111,33 @@ function render(time: number): void {
     );
     proj.multiply(viewMatrix);
 
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(shaderProgram);
     gl.bindVertexArray(treeVao);
-    gl.uniformMatrix4fv(matLocation, false, proj.all());
+    gl.uniformMatrix4fv(worldLocation, false, mat4.identity.all());
+    gl.uniformMatrix4fv(mvpLocation, false, proj.all());
     gl.drawElements(gl.TRIANGLES, NUM_INDICES, gl.UNSIGNED_SHORT, 0);
-    //gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     requestAnimationFrame(render);
+}
+
+function bufferVec3Array(varName: string, data: Float32Array) {
+    let location = gl.getAttribLocation(shaderProgram, varName);
+    let buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+
+    gl.enableVertexAttribArray(location);
+    let size = 3, type = gl.FLOAT, normalize = false, stride = 0, offset = 0;
+    gl.vertexAttribPointer(location, size, type, normalize, stride, offset);
 }
 
 function createTreeMesh(): WebGLVertexArrayObject {
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
-    let vertexPositions = new Float32Array(BRANCH_RESOLUTION * 6);
+    let vertexPositions = new Float32Array(NUM_VERTICES);
+    let vertexNormals = new Float32Array(NUM_VERTICES);
     let indices = new Uint16Array(NUM_INDICES);
 
     for (let i = 0; i < BRANCH_RESOLUTION; i++) {
@@ -132,29 +145,33 @@ function createTreeMesh(): WebGLVertexArrayObject {
         let y = Math.cos(angle) * 0.1;
         let z = Math.sin(angle) * 0.1;
 
+        // Positions
         vertexPositions[i * 6] = -0.5;
         vertexPositions[i * 6 + 1] = y;
         vertexPositions[i * 6 + 2] = z;
-
         vertexPositions[i * 6 + 3] = 0.5;
         vertexPositions[i * 6 + 4] = y;
         vertexPositions[i * 6 + 5] = z;
 
+        // Normals
+        vertexNormals[i * 6] = 0;
+        vertexNormals[i * 6 + 1] = y * 10;
+        vertexNormals[i * 6 + 2] = z * 10;
+        vertexNormals[i * 6 + 3] = 0;
+        vertexNormals[i * 6 + 4] = y * 10;
+        vertexNormals[i * 6 + 5] = z * 10;
+
+        // Indices
         for (let j = 0; j < branchSideIndices.length; j++) {
             indices[i * branchSideIndices.length + j] =
                 branchSideIndices[j] + i * 2 % (BRANCH_RESOLUTION * 2);
         }
     }
 
-    let positionLocation = gl.getAttribLocation(shaderProgram, "a_position");
-    let positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertexPositions, gl.STATIC_DRAW);
+    bufferVec3Array("a_position", vertexPositions);
+    bufferVec3Array("a_normal", vertexNormals);
 
-    gl.enableVertexAttribArray(positionLocation);
-    let size = 3, type = gl.FLOAT, normalize = false, stride = 0, offset = 0;
-    gl.vertexAttribPointer(positionLocation, size, type, normalize, stride, offset);
-
+    // Buffer indices
     let indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
@@ -221,6 +238,9 @@ function onLoad(): void {
         return;
     }
 
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     shaderProgram = createProgram([
         { filename: "shader.vert", contents: vertexShader },
@@ -228,7 +248,8 @@ function onLoad(): void {
     ]);
 
     treeVao = createTreeMesh();
-    matLocation = gl.getUniformLocation(shaderProgram, "mat");
+    mvpLocation = gl.getUniformLocation(shaderProgram, "mvp");
+    worldLocation = gl.getUniformLocation(shaderProgram, "world");
 
     requestAnimationFrame(render);
 }
