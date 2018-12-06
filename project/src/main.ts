@@ -23,8 +23,12 @@ let CURVE_RES = [5];
 // Decides curvature type of branches.
 // 0: Curves upward, !0: S-curve
 let CURVE_BACK = [0];
-// Controls magnitude of curvature in braches
+
+// Controls magnitude of x-axis curvature in branches
 let CURVE = [2];
+
+// Controls magnitude of y-axis curvature in branches
+let CURVE_V = [1];
 
 // Controls amount of clones created each segment.
 let SEG_SPLIT = [1];
@@ -33,7 +37,7 @@ let SPLIT_ANGLE =   [5];
 let SPLIT_ANGLE_V = [4];
 // Controls lenght of branches
 let LENGTH =    [8];
-let LENGHT_V =  [4];
+let LENGTH_V =  [4];
 
 // Defines shapeRatio mode, see function.
 let SHAPE: Shapes = Shapes.Conical;
@@ -114,7 +118,7 @@ interface Branch {
 
 interface Segment {
     level: number
-    position: Vec3;
+    position: vec3;
     children: Array<Segment>
 }
 
@@ -337,6 +341,75 @@ function shapeRatio(shape: Shapes, ratio: number){
         default:
             return 1
     }
+}
+
+// Generate a new branch starting in position start.
+// level: number of parents for this branch
+// startSegment: If this branch has been split, this should state which number on the branch the next segment will be
+// parentLength: length of the branch parenting this one, zero for trunk.
+// childOffset: how far along the parent branch this one starts, zero for trunk.
+function generateBranch(level: number, startSegment: number, start: vec3, parentLength: number, childOffset: number): Segment{
+    let root: Segment = {
+        level: level,
+        position: start,
+        children: []
+    };
+
+    let branchLength: number;
+    if (level == 0) {
+        //Stem length
+        branchLength = LENGTH[0] - LENGTH_V[0]
+    } else if (level == 1) {
+        //First level branches
+        branchLength = parentLength * (LENGTH[1] - LENGTH_V[1]) * shapeRatio(SHAPE, (parentLength - childOffset) / (parentLength - BASE_SIZE * (SCALE - SCALE_V)))
+    } else {
+        branchLength = (LENGTH[level] - LENGTH_V[level]) * (parentLength - 0.6 * childOffset)
+    }
+
+    //Length between each segment in a branch
+    let segmentOffset: number = branchLength / (CURVE_RES[level] - 1)
+
+    let current: Segment = root;
+    let currentTransform: mat4 = mat4.identity;
+
+    let localTranslation: mat4 = new mat4().translate(new vec3([0, segmentOffset, 0]))
+
+    let localRot: mat4;
+    if(CURVE_BACK[level] == 0){
+        //Rotate along x axis
+        let localRotX: mat4 = new mat4().rotate(CURVE[level] / CURVE_RES[level] / 180 * Math.PI, new vec3([1, 0, 0]))
+        //Rotate along y-axis
+        let localRotY: mat4 = new mat4().rotate(CURVE_V[level] / CURVE_RES[level], new vec3([0, 1, 0]))
+        //Slap 'em together!
+        localRot = localRotY.multiply(localRotX)
+    } else {
+        throw {name : "NotImplementedError", message : "CURVE_BACK not yet defined for non-zero values."};
+    }
+
+    let localTransform = localRot.multiply(localTranslation);
+
+    for(let i = startSegment; i <= CURVE_RES[level]; ++i){
+        let seg: Segment = {
+            level: 0,
+            position: new vec3([0, 0, 0]),
+            children: []
+        }
+
+        seg.position = currentTransform.multiplyVec3(seg.position);
+
+        currentTransform = localTransform.multiply(currentTransform);
+
+        current.children.push(seg);
+
+        current = seg;
+    }
+    return root;
+}
+
+function generateTree(): Segment {
+    let root = generateBranch(0, CURVE_RES[0], new vec3([0, 0, 0]), 0, 0)
+
+    return root;
 }
 
 window.onload = () => onLoad();
