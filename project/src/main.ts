@@ -14,7 +14,7 @@ const BRANCHING_FACTORS: number[] = [0, 2, 3, 4, 1, 1];
 
 var canvas : HTMLCanvasElement, gl;
 
-var treeVao, shaderProgram, mvpLocation, worldLocation;
+var treeMesh, shaderProgram, mvpLocation, worldLocation;
 
 let leftPressed = false;
 let rightPressed = false;
@@ -59,21 +59,20 @@ interface Resource {
 
 interface Branch {
     endPoint: vec3;
-    children: Array<Branch>;
+    children: Branch[];
 }
 
 let testTree = {
-    endPoint: { x: 0, y: 0.1, z: 0 },
-    children: []
+    endPoint: new vec3([0, 1, 0]),
+    children: [
+        { endPoint: new vec3([0.5, 2, 0.5]), children: [] },
+        { endPoint: new vec3([-0.1, 2, 0]), children: [] }
+    ]
 }
 
-let branchSideIndices = [0, 1, 2, 1, 2, 3];
-let BRANCH_RESOLUTION = 8; // Number of vertices on each side of a branch
-let NUM_INDICES = branchSideIndices.length * BRANCH_RESOLUTION;
-
-let angle = 0;
-let radius = 2;
-let y = 0;
+let cameraPositionAngle = 0;
+let cameraPositionRadius = 2;
+let y = 3;
 
 let lastRenderTime = 0;
 function render(time: number): void {
@@ -92,7 +91,7 @@ function render(time: number): void {
     if (rightPressed) {
         angularVelocity += 2;
     }
-    angle += angularVelocity * dt;
+    cameraPositionAngle += angularVelocity * dt;
 
     let vy = 0;
     if (upPressed) {
@@ -103,19 +102,23 @@ function render(time: number): void {
     }
     y += vy * dt;
 
+    let camPosX = Math.sin(cameraPositionAngle) * cameraPositionRadius;
+    let camPosZ = Math.cos(cameraPositionAngle) * cameraPositionRadius;
+    let cameraTarget = new vec3([0, 1, 0]);
+
     let viewMatrix = mat4.lookAt(
-        new vec3([Math.sin(angle) * radius, y, Math.cos(angle) * radius]),
-        new vec3([0, 0, 0]),
+        new vec3([camPosX, y, camPosZ]),
+        cameraTarget,
         new vec3([0, 1, 0])
     );
     proj.multiply(viewMatrix);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(shaderProgram);
-    gl.bindVertexArray(treeVao);
+    gl.bindVertexArray(treeMesh.vao);
     gl.uniformMatrix4fv(worldLocation, false, mat4.identity.all());
     gl.uniformMatrix4fv(mvpLocation, false, proj.all());
-    gl.drawElements(gl.TRIANGLES, NUM_INDICES, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.TRIANGLES, treeMesh.indexAmount, gl.UNSIGNED_SHORT, 0);
 
     requestAnimationFrame(render);
 }
@@ -131,44 +134,95 @@ function bufferVec3Array(varName: string, data: Float32Array) {
     gl.vertexAttribPointer(location, size, type, normalize, stride, offset);
 }
 
-function createTreeMesh(): WebGLVertexArrayObject {
-    let vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
+interface BranchVertexData {
+    position: vec3;
+    normal: vec3;
+}
 
-    let VERTEX_ARRAY_SIZE = BRANCH_RESOLUTION * 6; // Two sides with xyz-values
-    let vertexPositions = new Float32Array(VERTEX_ARRAY_SIZE);
-    let vertexNormals = new Float32Array(VERTEX_ARRAY_SIZE);
-    let indices = new Uint16Array(NUM_INDICES);
+interface BranchMeshPart {
+    vertices: BranchVertexData[];
+    indices: Uint16Array;
+}
+
+let branchSideIndices = [0, 1, 2, 1, 2, 3];
+let BRANCH_RESOLUTION = 8; // Number of vertices on each side of a branch
+let BRANCH_INDEX_AMOUNT = branchSideIndices.length * BRANCH_RESOLUTION;
+let BRANCH_VERTEX_AMOUNT = BRANCH_RESOLUTION * 2; // Two ends on each branch
+
+let DATA_PER_VERTEX = 3; // x, y and z coords
+
+function generateBranchData(startPoint: vec3, endPoint: vec3): BranchMeshPart {
+    let meshPart = {
+        vertices: new Array<BranchVertexData>(BRANCH_VERTEX_AMOUNT),
+        indices: new Uint16Array(BRANCH_INDEX_AMOUNT)
+    };
 
     for (let i = 0; i < BRANCH_RESOLUTION; i++) {
         let angle = i / BRANCH_RESOLUTION * (2 * Math.PI);
-        let y = Math.cos(angle) * 0.1;
+        let x = Math.cos(angle) * 0.1;
         let z = Math.sin(angle) * 0.1;
 
-        // Positions
-        vertexPositions[i * 6] = -0.5;
-        vertexPositions[i * 6 + 1] = y;
-        vertexPositions[i * 6 + 2] = z;
-        vertexPositions[i * 6 + 3] = 0.5;
-        vertexPositions[i * 6 + 4] = y;
-        vertexPositions[i * 6 + 5] = z;
+        meshPart.vertices[i * 2] = {
+            position: new vec3([startPoint.x + x, startPoint.y, startPoint.z + z]),
+            normal: new vec3([x, 0, z])
+        };
 
-        // Normals
-        vertexNormals[i * 6] = 0;
-        vertexNormals[i * 6 + 1] = y * 10;
-        vertexNormals[i * 6 + 2] = z * 10;
-        vertexNormals[i * 6 + 3] = 0;
-        vertexNormals[i * 6 + 4] = y * 10;
-        vertexNormals[i * 6 + 5] = z * 10;
+        meshPart.vertices[i * 2 + 1] = {
+            position: new vec3([endPoint.x + x, endPoint.y, endPoint.z + z]),
+            normal: new vec3([x, 0, z])
+        }
 
-        // Indices
-        for (let j = 0; j < branchSideIndices.length; j++) {
-            // Generate triangles for the last row so it connects with the first
-            indices[i * branchSideIndices.length + j] =
-                (branchSideIndices[j] + i * 2) % 16;
+        meshPart.indices.set(
+            branchSideIndices.map(b => (b + i * 2) % 16),
+            i * branchSideIndices.length
+        );
+    }
+
+    return meshPart;
+}
+
+function generateAllMeshParts(tree: Branch, startPoint: vec3): BranchMeshPart[] {
+    let thisData = generateBranchData(startPoint, tree.endPoint);
+    let childrenData: BranchMeshPart[] = tree.children.flatMap(
+        c => generateAllMeshParts(c, tree.endPoint)
+    );
+    return childrenData.concat(thisData);
+}
+
+interface Mesh {
+    vao: WebGLVertexArrayObject;
+    indexAmount: number;
+}
+
+function createTreeMesh(tree: Branch): Mesh {
+    let meshParts = generateAllMeshParts(testTree, new vec3([0, 0, 0]));
+
+    let branchAmount = meshParts.length;
+    let VERTEX_ARRAY_SIZE = BRANCH_VERTEX_AMOUNT * branchAmount * DATA_PER_VERTEX;
+    let numIndices = BRANCH_INDEX_AMOUNT * branchAmount;
+
+    let vertexPositions = new Float32Array(VERTEX_ARRAY_SIZE);
+    let vertexNormals = new Float32Array(VERTEX_ARRAY_SIZE);
+    let indices = new Uint16Array(numIndices);
+
+    // Indices need to be offset based on their position in the final array
+    for (let i = 0; i < meshParts.length; i++) {
+        let indexIndex = i * BRANCH_INDEX_AMOUNT;
+        let vertexIndex = i * BRANCH_VERTEX_AMOUNT;
+        let part = meshParts[i];
+        indices.set(
+            part.indices.map(ind => ind + vertexIndex), indexIndex
+        );
+
+        for (let j = 0; j < part.vertices.length; j++) {
+            let vertex = part.vertices[j];
+            vertexPositions.set(vertex.position.xyz, (vertexIndex + j) * DATA_PER_VERTEX);
+            vertexNormals.set(vertex.normal.xyz, (vertexIndex + j) * DATA_PER_VERTEX);
         }
     }
-    console.log(indices);
+
+    let vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
 
     bufferVec3Array("a_position", vertexPositions);
     bufferVec3Array("a_normal", vertexNormals);
@@ -178,7 +232,7 @@ function createTreeMesh(): WebGLVertexArrayObject {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
 
-    return vao;
+    return {vao: vao, indexAmount: numIndices };
 }
 
 /**
@@ -249,7 +303,7 @@ function onLoad(): void {
         { filename: "shader.frag", contents: fragmentShader }
     ]);
 
-    treeVao = createTreeMesh();
+    treeMesh = createTreeMesh(testTree);
     mvpLocation = gl.getUniformLocation(shaderProgram, "mvp");
     worldLocation = gl.getUniformLocation(shaderProgram, "world");
 
