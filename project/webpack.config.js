@@ -1,5 +1,5 @@
 module.exports = {
-    entry: "./main.ts",
+    entry: "./src/main.ts",
     output: {
         filename: "bundle.js",
         path: __dirname + "/dist"
@@ -11,7 +11,8 @@ module.exports = {
 
     resolve: {
         // Add '.ts' and '.tsx' as resolvable extensions.
-        extensions: [".ts", ".tsx", ".js", ".json"]
+        extensions: [".ts", ".tsx", ".js", ".json"],
+        modules: ["./src", "."]
     },
 
     module: {
