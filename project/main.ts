@@ -1,30 +1,54 @@
 import vertexShader from './shader.vert'
 import fragmentShader from './shader.frag'
 
+enum Shapes {
+    Conical,
+    Spherical,
+    Hemispherical,
+    Cylindrical,
+    TaperedCylindrical,
+    Flame,
+    InverseConical,
+    TendFlame
+}
+
 // All constants that are arrays below have their elements affect branches at
 // a level corresponding to the index of the element in question
 
-// Number of segments in branches a branch.
-let CURVE_RES = [];
+// Number of segments per branch.
+let CURVE_RES = [5];
 // Decides curvature type of branches.
 // 0: Curves upward, !0: S-curve
-let CURVE_BACK = [];
+let CURVE_BACK = [0];
 // Controls magnitude of curvature in braches
-let CURVE = [];
+let CURVE = [2];
 
 // Controls amount of clones created each segment.
-let SEG_SPLIT = [];
+let SEG_SPLIT = [1];
 // Controls how much new clones will rotate away from their parents.
-let SPLIT_ANGLE =   [];
-let SPLIT_ANGLE_V = [];
+let SPLIT_ANGLE =   [5];
+let SPLIT_ANGLE_V = [4];
 // Controls lenght of branches
-let LENGTH =    [];
-let LENGHT_V =  [];
+let LENGTH =    [8];
+let LENGHT_V =  [4];
 
 // Defines shapeRatio mode, see function.
-let SHAPE = 0;
+let SHAPE: Shapes = Shapes.Conical;
 
-let BASE_SIZE = 0;
+// Decides radius of the tree along the base, which also has an effect on the
+// overall height of the tree.
+let BASE_SIZE = 5;
+
+// Decides overall size of the whole tree.
+let SCALE = 1;
+let SCALE_V = 1;
+
+// Controls thickness of branches somehow TODO: improve comment.
+let RATIO = 1;
+let RATIO_POWER = 1;
+
+// Controls amount of tapering of branch thickness [0, 3].
+let TAPER = [1];
 
 var canvas : HTMLCanvasElement, gl;
 
@@ -40,8 +64,8 @@ interface Vec3 {
 }
 
 interface Branch {
-    endPoint: Vec3;
-    children: Array<Branch>;
+    segments: Array<Segment>;
+    length: number;
 }
 
 interface Segment {
@@ -181,24 +205,24 @@ function onLoad(): void {
 
 // ShapeRatio function as defined by Penn and Weber, essentially controls
 // length of branches, which ends up controlling the overall shape of the foiliage
-function shapeRatio(shape: number, ratio: number){
+function shapeRatio(shape: Shapes, ratio: number){
     switch(shape){
-        case 0:
+        case Shapes.Conical:
             return 0.2 + 0.8 * ratio;
-        case 1:
+        case Shapes.Spherical:
             0.2 + 0.8 * Math.sin(Math.PI * ratio);
-        case 2:
+        case Shapes.Hemispherical:
             0.2 + 0.8 * Math.sin(0.5 * Math.PI * ratio);
-        case 3:
+        case Shapes.Cylindrical:
             return 1;
-        case 4:
+        case Shapes.TaperedCylindrical:
             return 0.5 + 0.5 * ratio;
-        case 5:
+        case Shapes.Flame:
             if (ratio <= 0.7) return ratio / 0.7;
             return (1 - ratio) / 0.3;
-        case 6:
+        case Shapes.InverseConical:
             return 1 - 0.8 * ratio;
-        case 7:
+        case Shapes.TendFlame:
             if (ratio <= 0.7) return 0.5 + 0.5 * ratio / 0.7
             return 0.5 + 0.5 * (1 - ratio) / 0.3
         default:
@@ -208,9 +232,19 @@ function shapeRatio(shape: number, ratio: number){
 
 function generateTree(): Segment {
     let root = {
+        level: 0,
         position: {x: 0, y: 0, z: 0},
         children: []
     };
+
+    for(let i = 1; i <= CURVE_RES[root.level]; ++i){
+        let seg = {
+            level: 0,
+            position: {},
+            children: []
+        }
+    }
+
     return root;
 }
 
