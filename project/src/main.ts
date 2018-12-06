@@ -173,7 +173,7 @@ function generateAllMeshParts(tree: Branch, startPoint: vec3): BranchMeshPart[] 
     let childrenData: BranchMeshPart[] = tree.children.flatMap(
         c => generateAllMeshParts(c, tree.endPoint)
     );
-    return childrenData.concat(thisData);
+    return childrenData.push(thisData);
 }
 
 interface Mesh {
