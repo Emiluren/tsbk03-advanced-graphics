@@ -4,6 +4,60 @@ import fragmentShader from './shader.frag'
 import mat4 from 'tsm/src/mat4'
 import vec3 from 'tsm/src/vec3'
 
+enum Shapes {
+    Conical,
+    Spherical,
+    Hemispherical,
+    Cylindrical,
+    TaperedCylindrical,
+    Flame,
+    InverseConical,
+    TendFlame
+}
+
+// All constants that are arrays below have their elements affect branches at
+// a level corresponding to the index of the element in question
+
+// Number of segments per branch.
+let CURVE_RES = [5];
+// Decides curvature type of branches.
+// 0: Curves upward, !0: S-curve
+let CURVE_BACK = [0];
+
+// Controls magnitude of x-axis curvature in branches
+let CURVE = [2];
+
+// Controls magnitude of y-axis curvature in branches
+let CURVE_V = [1];
+
+// Controls amount of clones created each segment.
+let SEG_SPLIT = [1];
+// Controls how much new clones will rotate away from their parents.
+let SPLIT_ANGLE =   [5];
+let SPLIT_ANGLE_V = [4];
+// Controls lenght of branches
+let LENGTH =    [8];
+let LENGTH_V =  [4];
+
+// Defines shapeRatio mode, see function.
+let SHAPE: Shapes = Shapes.Conical;
+
+// Decides radius of the tree along the base, which also has an effect on the
+// overall height of the tree.
+let BASE_SIZE = 5;
+
+// Decides overall size of the whole tree.
+let SCALE = 1;
+let SCALE_V = 1;
+
+// Controls thickness of branches somehow TODO: improve comment.
+let RATIO = 1;
+let RATIO_POWER = 1;
+
+// Controls amount of tapering of branch thickness [0, 3].
+let TAPER = [1];
+
+
 //List where each index n specifies how many times a stem generate a clone on
 //average for a stem with n parents.
 const STEM_BRANCHING_FACTORS: number[] = [1, 1, 1, 1, 0];
@@ -39,7 +93,7 @@ function handleKeyEvent(keyCode: string, newState: boolean) {
         case "ArrowDown":
             downPressed = newState;
             break;
-    }    
+    }
 }
 
 window.addEventListener('keydown', (event) => {
@@ -60,6 +114,12 @@ interface Resource {
 interface Branch {
     endPoint: vec3;
     children: Branch[];
+}
+
+interface Segment {
+    level: number
+    position: vec3;
+    children: Array<Segment>
 }
 
 let testTree = {
@@ -306,6 +366,102 @@ function onLoad(): void {
     worldLocation = gl.getUniformLocation(shaderProgram, "world");
 
     requestAnimationFrame(render);
+}
+
+// ShapeRatio function as defined by Penn and Weber, essentially controls
+// length of branches, which ends up controlling the overall shape of the foiliage
+function shapeRatio(shape: Shapes, ratio: number){
+    switch(shape){
+        case Shapes.Conical:
+            return 0.2 + 0.8 * ratio;
+        case Shapes.Spherical:
+            0.2 + 0.8 * Math.sin(Math.PI * ratio);
+        case Shapes.Hemispherical:
+            0.2 + 0.8 * Math.sin(0.5 * Math.PI * ratio);
+        case Shapes.Cylindrical:
+            return 1;
+        case Shapes.TaperedCylindrical:
+            return 0.5 + 0.5 * ratio;
+        case Shapes.Flame:
+            if (ratio <= 0.7) return ratio / 0.7;
+            return (1 - ratio) / 0.3;
+        case Shapes.InverseConical:
+            return 1 - 0.8 * ratio;
+        case Shapes.TendFlame:
+            if (ratio <= 0.7) return 0.5 + 0.5 * ratio / 0.7
+            return 0.5 + 0.5 * (1 - ratio) / 0.3
+        default:
+            return 1
+    }
+}
+
+// Generate a new branch starting in position start.
+// level: number of parents for this branch
+// startSegment: If this branch has been split, this should state which number on the branch the next segment will be
+// parentLength: length of the branch parenting this one, zero for trunk.
+// childOffset: how far along the parent branch this one starts, zero for trunk.
+function generateBranch(level: number, startSegment: number, start: vec3, parentLength: number, childOffset: number): Segment{
+    let root: Segment = {
+        level: level,
+        position: start,
+        children: []
+    };
+
+    let branchLength: number;
+    if (level == 0) {
+        //Stem length
+        branchLength = LENGTH[0] - LENGTH_V[0]
+    } else if (level == 1) {
+        //First level branches
+        branchLength = parentLength * (LENGTH[1] - LENGTH_V[1]) * shapeRatio(SHAPE, (parentLength - childOffset) / (parentLength - BASE_SIZE * (SCALE - SCALE_V)))
+    } else {
+        branchLength = (LENGTH[level] - LENGTH_V[level]) * (parentLength - 0.6 * childOffset)
+    }
+
+    //Length between each segment in a branch
+    let segmentOffset: number = branchLength / (CURVE_RES[level] - 1)
+
+    let current: Segment = root;
+    let currentTransform: mat4 = mat4.identity;
+
+    let localTranslation: mat4 = new mat4().translate(new vec3([0, segmentOffset, 0]))
+
+    let localRot: mat4;
+    if(CURVE_BACK[level] == 0){
+        //Rotate along x axis
+        let localRotX: mat4 = new mat4().rotate(CURVE[level] / CURVE_RES[level] / 180 * Math.PI, new vec3([1, 0, 0]))
+        //Rotate along y-axis
+        let localRotY: mat4 = new mat4().rotate(CURVE_V[level] / CURVE_RES[level], new vec3([0, 1, 0]))
+        //Slap 'em together!
+        localRot = localRotY.multiply(localRotX)
+    } else {
+        throw {name : "NotImplementedError", message : "CURVE_BACK not yet defined for non-zero values."};
+    }
+
+    let localTransform = localRot.multiply(localTranslation);
+
+    for(let i = startSegment; i <= CURVE_RES[level]; ++i){
+        let seg: Segment = {
+            level: 0,
+            position: new vec3([0, 0, 0]),
+            children: []
+        }
+
+        seg.position = currentTransform.multiplyVec3(seg.position);
+
+        currentTransform = localTransform.multiply(currentTransform);
+
+        current.children.push(seg);
+
+        current = seg;
+    }
+    return root;
+}
+
+function generateTree(): Segment {
+    let root = generateBranch(0, CURVE_RES[0], new vec3([0, 0, 0]), 0, 0)
+
+    return root;
 }
 
 window.onload = () => onLoad();
