@@ -123,17 +123,6 @@ function render(time: number): void {
     requestAnimationFrame(render);
 }
 
-function bufferVec3Array(varName: string, data: Float32Array) {
-    let location = gl.getAttribLocation(shaderProgram, varName);
-    let buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-
-    gl.enableVertexAttribArray(location);
-    let size = 3, type = gl.FLOAT, normalize = false, stride = 0, offset = 0;
-    gl.vertexAttribPointer(location, size, type, normalize, stride, offset);
-}
-
 interface BranchVertexData {
     position: vec3;
     normal: vec3;
@@ -148,8 +137,6 @@ let branchSideIndices = [0, 1, 2, 1, 2, 3];
 let BRANCH_RESOLUTION = 8; // Number of vertices on each side of a branch
 let BRANCH_INDEX_AMOUNT = branchSideIndices.length * BRANCH_RESOLUTION;
 let BRANCH_VERTEX_AMOUNT = BRANCH_RESOLUTION * 2; // Two ends on each branch
-
-let DATA_PER_VERTEX = 3; // x, y and z coords
 
 function generateBranchData(startPoint: vec3, endPoint: vec3): BranchMeshPart {
     let meshPart = {
@@ -198,11 +185,11 @@ function createTreeMesh(tree: Branch): Mesh {
     let meshParts = generateAllMeshParts(testTree, new vec3([0, 0, 0]));
 
     let branchAmount = meshParts.length;
+    let DATA_PER_VERTEX = 6; // x, y and z coords for both position and normal
     let VERTEX_ARRAY_SIZE = BRANCH_VERTEX_AMOUNT * branchAmount * DATA_PER_VERTEX;
     let numIndices = BRANCH_INDEX_AMOUNT * branchAmount;
 
-    let vertexPositions = new Float32Array(VERTEX_ARRAY_SIZE);
-    let vertexNormals = new Float32Array(VERTEX_ARRAY_SIZE);
+    let vertexData = new Float32Array(VERTEX_ARRAY_SIZE);
     let indices = new Uint16Array(numIndices);
 
     // Indices need to be offset based on their position in the final array
@@ -216,16 +203,27 @@ function createTreeMesh(tree: Branch): Mesh {
 
         for (let j = 0; j < part.vertices.length; j++) {
             let vertex = part.vertices[j];
-            vertexPositions.set(vertex.position.xyz, (vertexIndex + j) * DATA_PER_VERTEX);
-            vertexNormals.set(vertex.normal.xyz, (vertexIndex + j) * DATA_PER_VERTEX);
+            let thisData = vertex.position.xyz.concat(vertex.normal.xyz);
+            vertexData.set(thisData, (vertexIndex + j) * DATA_PER_VERTEX);
         }
     }
 
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
-    bufferVec3Array("a_position", vertexPositions);
-    bufferVec3Array("a_normal", vertexNormals);
+    let buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+
+    let pos_location = gl.getAttribLocation(shaderProgram, "a_position");
+    let norm_location = gl.getAttribLocation(shaderProgram, "a_normal");
+    gl.enableVertexAttribArray(pos_location);
+    gl.enableVertexAttribArray(norm_location);
+
+    // Normals come after positions in the array
+    let size = 3, normalize = false, stride = DATA_PER_VERTEX * 4;
+    gl.vertexAttribPointer(pos_location, size, gl.FLOAT, normalize, stride, 0);
+    gl.vertexAttribPointer(norm_location, size, gl.FLOAT, normalize, stride, 12);
 
     // Buffer indices
     let indexBuffer = gl.createBuffer();
