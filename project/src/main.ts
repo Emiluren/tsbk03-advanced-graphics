@@ -25,7 +25,7 @@ let CURVE_RES = [5];
 let CURVE_BACK = [0];
 
 // Controls magnitude of x-axis curvature in branches
-let CURVE = [2];
+let CURVE = [20];
 
 // Controls magnitude of y-axis curvature in branches
 let CURVE_V = [1];
@@ -119,7 +119,7 @@ interface Branch {
 interface Segment {
     level: number
     position: vec3;
-    children: Array<Segment>
+    children: Segment[]
 }
 
 let testTree = {
@@ -131,7 +131,7 @@ let testTree = {
 }
 
 let cameraPositionAngle = 0;
-let cameraPositionRadius = 2;
+let cameraPositionRadius = 10;
 let y = 3;
 
 let lastRenderTime = 0;
@@ -155,16 +155,16 @@ function render(time: number): void {
 
     let vy = 0;
     if (upPressed) {
-        vy += 2;
+        vy += 10;
     }
     if (downPressed) {
-        vy -= 2;
+        vy -= 10;
     }
     y += vy * dt;
 
     let camPosX = Math.sin(cameraPositionAngle) * cameraPositionRadius;
     let camPosZ = Math.cos(cameraPositionAngle) * cameraPositionRadius;
-    let cameraTarget = new vec3([0, 1, 0]);
+    let cameraTarget = new vec3([0, 7, 0]);
 
     let viewMatrix = mat4.lookAt(
         new vec3([camPosX, y, camPosZ]),
@@ -228,12 +228,14 @@ function generateBranchData(startPoint: vec3, endPoint: vec3): BranchMeshPart {
     return meshPart;
 }
 
-function generateAllMeshParts(tree: Branch, startPoint: vec3): BranchMeshPart[] {
-    let thisData = generateBranchData(startPoint, tree.endPoint);
-    let childrenData: BranchMeshPart[] = tree.children.flatMap(
-        c => generateAllMeshParts(c, tree.endPoint)
+function generateAllMeshParts(seg: Segment, startPoint: vec3): BranchMeshPart[] {
+    let thisData = generateBranchData(startPoint, seg.position);
+    let childrenData: BranchMeshPart[] = seg.children.flatMap(
+        c => generateAllMeshParts(c, seg.position)
     );
-    return childrenData.push(thisData);
+    childrenData.push(thisData);
+
+    return childrenData;
 }
 
 interface Mesh {
@@ -241,8 +243,8 @@ interface Mesh {
     indexAmount: number;
 }
 
-function createTreeMesh(tree: Branch): Mesh {
-    let meshParts = generateAllMeshParts(testTree, new vec3([0, 0, 0]));
+function createTreeMesh(seg: Segment): Mesh {
+    let meshParts = generateAllMeshParts(seg, new vec3([0, 0, 0]));
 
     let branchAmount = meshParts.length;
     let DATA_PER_VERTEX = 6; // x, y and z coords for both position and normal
@@ -361,7 +363,7 @@ function onLoad(): void {
         { filename: "shader.frag", contents: fragmentShader }
     ]);
 
-    treeMesh = createTreeMesh(testTree);
+    treeMesh = createTreeMesh(generateTree());
     mvpLocation = gl.getUniformLocation(shaderProgram, "mvp");
     worldLocation = gl.getUniformLocation(shaderProgram, "world");
 
@@ -424,14 +426,14 @@ function generateBranch(level: number, startSegment: number, start: vec3, parent
     let current: Segment = root;
     let currentTransform: mat4 = mat4.identity;
 
-    let localTranslation: mat4 = new mat4().translate(new vec3([0, segmentOffset, 0]))
+    let localTranslation: mat4 = new mat4().setIdentity().translate(new vec3([0, segmentOffset, 0]))
 
     let localRot: mat4;
     if(CURVE_BACK[level] == 0){
         //Rotate along x axis
-        let localRotX: mat4 = new mat4().rotate(CURVE[level] / CURVE_RES[level] / 180 * Math.PI, new vec3([1, 0, 0]))
+        let localRotX: mat4 = new mat4().setIdentity().rotate(CURVE[level] / CURVE_RES[level] / 180 * Math.PI, new vec3([1, 0, 0]))
         //Rotate along y-axis
-        let localRotY: mat4 = new mat4().rotate(CURVE_V[level] / CURVE_RES[level], new vec3([0, 1, 0]))
+        let localRotY: mat4 = new mat4().setIdentity().rotate(CURVE_V[level] / CURVE_RES[level], new vec3([0, 1, 0]))
         //Slap 'em together!
         localRot = localRotY.multiply(localRotX)
     } else {
@@ -459,7 +461,7 @@ function generateBranch(level: number, startSegment: number, start: vec3, parent
 }
 
 function generateTree(): Segment {
-    let root = generateBranch(0, CURVE_RES[0], new vec3([0, 0, 0]), 0, 0)
+    let root = generateBranch(0, 0, new vec3([0, 0, 0]), 0, 0)
 
     return root;
 }
