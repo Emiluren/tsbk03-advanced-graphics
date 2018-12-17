@@ -19,16 +19,16 @@ enum Shapes {
 // a level corresponding to the index of the element in question
 
 // Number of segments per branch.
-let CURVE_RES = [5];
+let CURVE_RES = [6];
 // Decides curvature type of branches.
-// 0: Curves upward, !0: S-curve
+// 0: Curves upward, !0: S-curve Slightly buggy
 let CURVE_BACK = [0];
 
 // Controls magnitude of x-axis curvature in branches
-let CURVE = [20];
+let CURVE = [100];
 
 // Controls magnitude of y-axis curvature in branches
-let CURVE_V = [1];
+let CURVE_V = [2];
 
 // Controls amount of clones created each segment.
 let SEG_SPLIT = [1];
@@ -36,8 +36,8 @@ let SEG_SPLIT = [1];
 let SPLIT_ANGLE =   [5];
 let SPLIT_ANGLE_V = [4];
 // Controls lenght of branches
-let LENGTH =    [8];
-let LENGTH_V =  [4];
+let LENGTH =    [3];
+let LENGTH_V =  [2];
 
 // Defines shapeRatio mode, see function.
 let SHAPE: Shapes = Shapes.Conical;
@@ -426,21 +426,37 @@ function generateBranch(level: number, startSegment: number, start: vec3, parent
     let current: Segment = root;
     let currentTransform: mat4 = mat4.identity;
 
-    let localTranslation: mat4 = new mat4().setIdentity().translate(new vec3([0, segmentOffset, 0]))
+    let localTranslation: mat4 = new mat4().setIdentity().translate(new vec3([0, segmentOffset, 0]));
 
     let localRot: mat4;
+    let localRotEnd: mat4;
+    let localRotX: mat4;
+    let localRotXEnd: mat4; //Angle end half of segments should rotate in S-branches.
+    let localRotY: mat4 = new mat4().setIdentity().rotate(CURVE_V[level] / CURVE_RES[level], new vec3([0, 1, 0]));
+
+    let localTransform: mat4;
+    let localTransformEnd: mat4; //For the end of S-branches;
+
     if(CURVE_BACK[level] == 0){
         //Rotate along x axis
-        let localRotX: mat4 = new mat4().setIdentity().rotate(CURVE[level] / CURVE_RES[level] / 180 * Math.PI, new vec3([1, 0, 0]))
-        //Rotate along y-axis
-        let localRotY: mat4 = new mat4().setIdentity().rotate(CURVE_V[level] / CURVE_RES[level], new vec3([0, 1, 0]))
-        //Slap 'em together!
+        localRotX = new mat4().setIdentity().rotate(CURVE[level] / CURVE_RES[level] / 180 * Math.PI, new vec3([1, 0, 0]));
         localRot = localRotY.multiply(localRotX)
+        localTransform = localRot.multiply(localTranslation);
     } else {
-        throw {name : "NotImplementedError", message : "CURVE_BACK not yet defined for non-zero values."};
+        //S-shaped branch.
+        //Rotate first halv of the branches' segments one way, and the other
+        //half the other other way
+        let sCurveStart: number = CURVE[level] / (CURVE_RES[level] / 2);
+        let sCurveEnd: number = CURVE_BACK[level] / (CURVE_RES[level] / 2);
+        //Calculate the different rotation matrices for the S-branch rotations.
+        localRotX = new mat4().setIdentity().rotate(sCurveStart, new vec3([1, 0, 0]));
+        localRotXEnd = new mat4().setIdentity().rotate(-sCurveEnd, new vec3([1, 0, 0]));
+        localRot = localRotY.copy().multiply(localRotX);
+        localRotEnd = localRotY.multiply(localRotXEnd);
+        //Create the total transformations for the different parts of the S-branch.
+        localTransform = localRot.multiply(localTranslation);
+        localTransformEnd = localRotEnd.multiply(localTranslation);
     }
-
-    let localTransform = localRot.multiply(localTranslation);
 
     for(let i = startSegment; i <= CURVE_RES[level]; ++i){
         let seg: Segment = {
@@ -451,7 +467,12 @@ function generateBranch(level: number, startSegment: number, start: vec3, parent
 
         seg.position = currentTransform.multiplyVec3(seg.position);
 
-        currentTransform = localTransform.multiply(currentTransform);
+        //Select the current transform for creating the S-shape branch.
+        if(CURVE_BACK[level] == 0 || i < CURVE_RES[level] / 2){
+            currentTransform = localTransform.multiply(currentTransform);
+        } else {
+            currentTransform = localTransformEnd.multiply(currentTransform);
+        }
 
         current.children.push(seg);
 
