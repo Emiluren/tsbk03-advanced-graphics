@@ -56,7 +56,7 @@ let TAPER = [1.5];
 
 var canvas : HTMLCanvasElement, gl;
 
-var treeMesh, shaderProgram, mvpLocation, worldLocation;
+var treeMesh, shaderProgram, mvpLocation, worldLocation, timeLocation;
 
 let leftPressed = false;
 let rightPressed = false;
@@ -168,6 +168,7 @@ function render(time: number): void {
     gl.bindVertexArray(treeMesh.vao);
     gl.uniformMatrix4fv(worldLocation, false, mat4.identity.all());
     gl.uniformMatrix4fv(mvpLocation, false, proj.all());
+    gl.uniform1f(timeLocation, time / 1000);
     gl.drawElements(gl.TRIANGLES, treeMesh.indexAmount, gl.UNSIGNED_SHORT, 0);
 
     requestAnimationFrame(render);
@@ -359,6 +360,7 @@ function onLoad(): void {
     treeMesh = createTreeMesh(generateTree());
     mvpLocation = gl.getUniformLocation(shaderProgram, "mvp");
     worldLocation = gl.getUniformLocation(shaderProgram, "world");
+    timeLocation = gl.getUniformLocation(shaderProgram, "time");
 
     requestAnimationFrame(render);
 }
