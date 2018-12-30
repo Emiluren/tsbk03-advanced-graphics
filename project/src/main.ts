@@ -15,6 +15,7 @@ function shaderType(filename: string): GLenum {
 }
 
 import mat4 from 'tsm/src/mat4'
+import vec4 from 'tsm/src/vec4'
 import vec3 from 'tsm/src/vec3'
 
 enum Shapes {
@@ -466,30 +467,27 @@ function onLoad(): void {
     worldLocation = gl.getUniformLocation(treeShader, "world");
 
     canvas.addEventListener('click', (event) => {
-        let x = event.clientX;
-        let y = event.clientY;
+        let camPos = cameraPosition()
 
-        // This is a bit confusing but the angle around the camera's x axis
-        // depends on the mouse's y position and vice versa
-        let yDegAngle = (x / canvas.width - 0.5) * 2 * CAMERA_FOV;
-        let xDegAngle = (y / canvas.height - 0.5) * 2 * CAMERA_FOV / canvas.width * canvas.height;
+        let x = 2 * event.clientX / canvas.width - 1;
+        let y = 1 - 2 * event.clientY / canvas.height;
+        let rayClip = new vec4([x, y, -1, 1]);
 
-        let camPos = cameraPosition();
-        let cameraToTarget = vec3.difference(cameraTarget, camPos);
-        let xAngle = xDegAngle / 180 * Math.PI;
-        let yAngle = yDegAngle / 180 * Math.PI;
-        yAngle += cameraPositionAngle + Math.PI;
-        let horisontalDistance = Math.sqrt(Math.pow(cameraToTarget.x, 2) + Math.pow(cameraToTarget.z, 2));
-        xAngle += Math.atan2(cameraToTarget.y, horisontalDistance);
-        let rayDir = new vec3([
-            Math.sin(yAngle) * 10,
-            Math.tan(xAngle) * 10,
-            Math.cos(yAngle) * 10
-        ]);
+        let proj = mat4.perspective(CAMERA_FOV, canvas.width / canvas.height, 0.1, 100);
+        proj.inverse();
+        let rayEye = proj.multiplyVec4(rayClip);
+        rayEye.z = -1;
+        rayEye.w = 0;
 
-        raycasts.push({ point: camPos, dir: rayDir })
+        let viewMatrix = mat4.lookAt(camPos, cameraTarget, new vec3([0, 1, 0]));
+        viewMatrix.inverse()
+        let rayWorld = new vec3(viewMatrix.multiplyVec4(rayEye).xyz);
+        rayWorld.normalize();
+        rayWorld.scale(10);
 
-        console.log("ay = " + yDegAngle + ", ax = " + xDegAngle + ", camera " + cameraPositionAngle);
+        raycasts.push({ point: camPos, dir: rayWorld })
+
+        //console.log("ay = " + yDegAngle + ", ax = " + xDegAngle + ", camera " + cameraPositionAngle);
     }, false);
 
     requestAnimationFrame(render);
