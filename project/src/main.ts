@@ -134,6 +134,15 @@ let cameraPositionAngle = 0;
 let cameraPositionRadius = 10;
 let y = 3;
 
+function cameraPosition(): vec3 {
+    let camPosX = Math.sin(cameraPositionAngle) * cameraPositionRadius;
+    let camPosZ = Math.cos(cameraPositionAngle) * cameraPositionRadius;
+    return new vec3([camPosX, y, camPosZ]);
+}
+
+const CAMERA_FOV = 45;
+let cameraTarget = new vec3([0, 7, 0]);
+
 let lastRenderTime = 0;
 function render(time: number): void {
     let dt = Math.min((time - lastRenderTime) / 1000, 1 / 30);
@@ -142,7 +151,7 @@ function render(time: number): void {
     canvas.width  = window.innerWidth;
     canvas.height = window.innerHeight;
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-    let proj = mat4.perspective(45, canvas.width / canvas.height, 0.1, 100);
+    let proj = mat4.perspective(CAMERA_FOV, canvas.width / canvas.height, 0.1, 100);
 
     let angularVelocity = 0;
     if (leftPressed) {
@@ -164,13 +173,8 @@ function render(time: number): void {
 
     let camPosX = Math.sin(cameraPositionAngle) * cameraPositionRadius;
     let camPosZ = Math.cos(cameraPositionAngle) * cameraPositionRadius;
-    let cameraTarget = new vec3([0, 7, 0]);
 
-    let viewMatrix = mat4.lookAt(
-        new vec3([camPosX, y, camPosZ]),
-        cameraTarget,
-        new vec3([0, 1, 0])
-    );
+    let viewMatrix = mat4.lookAt(cameraPosition(), cameraTarget, new vec3([0, 1, 0]));
     proj.multiply(viewMatrix);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -295,6 +299,42 @@ function createTreeMesh(seg: Segment): Mesh {
     return {vao: vao, indexAmount: numIndices };
 }
 
+// Based on http://geomalgorithms.com/a07-_distance.html
+function rayIntersectsCylinder(cylStart: vec3, cylEnd: vec3, startThickness: number, endThickness: number, rayPoint: vec3, rayDir: vec3): boolean {
+    let cylDir = vec3.difference(cylEnd, cylStart);
+    let w = vec3.difference(cylStart, rayPoint);
+
+    let a = vec3.dot(cylDir, cylDir); // always >= 0
+    let b = vec3.dot(cylDir, rayDir);
+    let c = vec3.dot(rayDir, rayDir); // always >= 0
+    let d = vec3.dot(cylDir, w);
+    let e = vec3.dot(rayDir, w);
+    let D = a*c - b*b; // always >= 0
+
+    let cylClosest, rayClosest;
+    // compute the line parameters of the two closest points
+    if (D < 0.001) {          // the lines are almost parallel
+        cylClosest = 0.0;
+        rayClosest = (b>c ? d/b : e/c);    // use the largest denominator
+    }
+    else {
+        cylClosest = (b*e - c*d) / D;
+        rayClosest = (a*e - b*d) / D;
+    }
+
+    // If the closest point is outside the cylinder there is no collision
+    // There is also no collision if the point is behind the camera
+    if (cylClosest < 0 || cylClosest > 1 || rayClosest < 0) {
+        return false;
+    }
+
+    // get the difference of the two closest points
+    let separation = w.add(cylDir.scale(cylClosest, new vec3())).add(rayDir.scale(rayClosest, new vec3()));  // =  L1(sc) - L2(tc)
+
+    let thicknessAtClosest = endThickness * cylClosest + startThickness * (1 - cylClosest);
+    return separation.length() <= thicknessAtClosest;
+}
+
 /**
  * Compiles a shader to be used in a GPU program.
  * @param {number} type - The type of shader. gl.VERTEX_SHADER/gl.FRAGMENT_SHADER/etc
@@ -345,6 +385,8 @@ function createProgram(shaderSources: Array<Resource>): WebGLProgram {
     }
 }
 
+let raycasts = [];
+
 function onLoad(): void {
     canvas = document.querySelector("#glCanvas");
     gl = canvas.getContext("webgl2");
@@ -366,6 +408,23 @@ function onLoad(): void {
     treeMesh = createTreeMesh(generateTree());
     mvpLocation = gl.getUniformLocation(shaderProgram, "mvp");
     worldLocation = gl.getUniformLocation(shaderProgram, "world");
+
+    canvas.addEventListener('click', (event) => {
+        let x = event.clientX;
+        let y = event.clientY;
+        let xDegAngle = (x / canvas.width - 0.5) * 2 * CAMERA_FOV;
+        let yDegAngle = (y / canvas.height - 0.5) * 2 * CAMERA_FOV / canvas.width * canvas.height;
+
+        let camPos = cameraPosition();
+        let cameraToTarget = vec3.difference(cameraTarget, camPos);
+        let xAngle = xDegAngle / 180 * Math.PI;
+        let yAngle = yDegAngle / 180 * Math.PI;
+        yAngle += cameraPositionAngle + Math.PI;
+        let horisontalDistance = Math.sqrt(Math.pow(cameraToTarget.x, 2) + Math.pow(cameraToTarget.z, 2));
+        xAngle += Math.atan2(cameraToTarget.y, horisontalDistance);
+
+        console.log("ay = " + yAngle + ", ax = " + xAngle);
+    }, false);
 
     requestAnimationFrame(render);
 }
