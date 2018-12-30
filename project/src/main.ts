@@ -1,5 +1,18 @@
-import vertexShader from './shader.vert'
-import fragmentShader from './shader.frag'
+import treeVertexShader from './shader.vert'
+import treeFragmentShader from './shader.frag'
+
+import rayVertexShader from './ray.vert'
+import rayFragmentShader from './ray.frag'
+
+function shaderType(filename: string): GLenum {
+    let typeMap = {
+        "shader.vert": gl.VERTEX_SHADER,
+        "shader.frag": gl.FRAGMENT_SHADER,
+        "ray.vert": gl.VERTEX_SHADER,
+        "ray.frag": gl.FRAGMENT_SHADER
+    };
+    return typeMap[filename];
+}
 
 import mat4 from 'tsm/src/mat4'
 import vec3 from 'tsm/src/vec3'
@@ -68,7 +81,9 @@ const BRANCHING_FACTORS: number[] = [0, 2, 3, 4, 1, 1];
 
 var canvas : HTMLCanvasElement, gl;
 
-var treeMesh, shaderProgram, mvpLocation, worldLocation;
+var treeShader, rayShader;
+var treeMesh;
+var mvpLocation, worldLocation;
 
 let leftPressed = false;
 let rightPressed = false;
@@ -131,8 +146,11 @@ let testTree = {
 }
 
 let cameraPositionAngle = 0;
-let cameraPositionRadius = 10;
+let cameraPositionRadius = 5;
 let y = 3;
+
+const CAMERA_FOV = 45;
+let cameraTarget = new vec3([0, 7, 0]);
 
 function cameraPosition(): vec3 {
     let camPosX = Math.sin(cameraPositionAngle) * cameraPositionRadius;
@@ -140,8 +158,40 @@ function cameraPosition(): vec3 {
     return new vec3([camPosX, y, camPosZ]);
 }
 
-const CAMERA_FOV = 45;
-let cameraTarget = new vec3([0, 7, 0]);
+// Debug drawing for raycasts
+function drawRays(proj: mat4) {
+    let vertexData = new Float32Array(
+        raycasts.flatMap(
+            ray =>
+                // Make a small + to mark the start point
+                [ray.point.x + 0.1, ray.point.y, ray.point.z,
+                 ray.point.x - 0.1, ray.point.y, ray.point.z,
+                 ray.point.x, ray.point.y, ray.point.z + 0.1,
+                 ray.point.x, ray.point.y, ray.point.z - 0.1,
+
+                 ray.point.x, ray.point.y, ray.point.z,
+                 ray.point.x + ray.dir.x,
+                 ray.point.y + ray.dir.y,
+                 ray.point.z + ray.dir.z]
+        )
+    );
+    gl.useProgram(rayShader);
+
+    // For the ray debug draw we make a new buffer each frame because
+    // its not supposed to be used in ordinary cases.
+    let buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
+
+    let pos_location = gl.getAttribLocation(rayShader, "a_position");
+    gl.enableVertexAttribArray(pos_location);
+
+    let mvpLoc = gl.getUniformLocation(rayShader, "mvp");
+    gl.uniformMatrix4fv(mvpLoc, false, proj.all());
+
+    gl.vertexAttribPointer(pos_location, 3, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.LINES, 0, vertexData.length / 3);
+}
 
 let lastRenderTime = 0;
 function render(time: number): void {
@@ -178,11 +228,16 @@ function render(time: number): void {
     proj.multiply(viewMatrix);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.useProgram(shaderProgram);
+    gl.useProgram(treeShader);
     gl.bindVertexArray(treeMesh.vao);
     gl.uniformMatrix4fv(worldLocation, false, mat4.identity.all());
     gl.uniformMatrix4fv(mvpLocation, false, proj.all());
     gl.drawElements(gl.TRIANGLES, treeMesh.indexAmount, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
+
+    if (raycasts.length > 0) {
+        drawRays(proj);
+    }
 
     requestAnimationFrame(render);
 }
@@ -281,8 +336,8 @@ function createTreeMesh(seg: Segment): Mesh {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
-    let pos_location = gl.getAttribLocation(shaderProgram, "a_position");
-    let norm_location = gl.getAttribLocation(shaderProgram, "a_normal");
+    let pos_location = gl.getAttribLocation(treeShader, "a_position");
+    let norm_location = gl.getAttribLocation(treeShader, "a_normal");
     gl.enableVertexAttribArray(pos_location);
     gl.enableVertexAttribArray(norm_location);
 
@@ -359,15 +414,10 @@ function createShader(type: number, source: string): WebGLShader {
 }
 
 function createProgram(shaderSources: Array<Resource>): WebGLProgram {
-    let shaderTypes = {
-        "shader.vert": gl.VERTEX_SHADER,
-        "shader.frag": gl.FRAGMENT_SHADER
-    };
-
     var program = gl.createProgram();
     for (let shaderData of shaderSources) {
         let shader = createShader(
-            shaderTypes[shaderData.filename],
+            shaderType(shaderData.filename),
             shaderData.contents
         );
         gl.attachShader(program, shader);
@@ -385,6 +435,7 @@ function createProgram(shaderSources: Array<Resource>): WebGLProgram {
     }
 }
 
+// This is only used for debugging
 let raycasts = [];
 
 function onLoad(): void {
@@ -400,20 +451,28 @@ function onLoad(): void {
     gl.depthFunc(gl.LEQUAL);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    shaderProgram = createProgram([
-        { filename: "shader.vert", contents: vertexShader },
-        { filename: "shader.frag", contents: fragmentShader }
+    treeShader = createProgram([
+        { filename: "shader.vert", contents: treeVertexShader },
+        { filename: "shader.frag", contents: treeFragmentShader }
+    ]);
+
+    rayShader = createProgram([
+        { filename: "ray.vert", contents: rayVertexShader },
+        { filename: "ray.frag", contents: rayFragmentShader }
     ]);
 
     treeMesh = createTreeMesh(generateTree());
-    mvpLocation = gl.getUniformLocation(shaderProgram, "mvp");
-    worldLocation = gl.getUniformLocation(shaderProgram, "world");
+    mvpLocation = gl.getUniformLocation(treeShader, "mvp");
+    worldLocation = gl.getUniformLocation(treeShader, "world");
 
     canvas.addEventListener('click', (event) => {
         let x = event.clientX;
         let y = event.clientY;
-        let xDegAngle = (x / canvas.width - 0.5) * 2 * CAMERA_FOV;
-        let yDegAngle = (y / canvas.height - 0.5) * 2 * CAMERA_FOV / canvas.width * canvas.height;
+
+        // This is a bit confusing but the angle around the camera's x axis
+        // depends on the mouse's y position and vice versa
+        let yDegAngle = (x / canvas.width - 0.5) * 2 * CAMERA_FOV;
+        let xDegAngle = (y / canvas.height - 0.5) * 2 * CAMERA_FOV / canvas.width * canvas.height;
 
         let camPos = cameraPosition();
         let cameraToTarget = vec3.difference(cameraTarget, camPos);
@@ -422,8 +481,15 @@ function onLoad(): void {
         yAngle += cameraPositionAngle + Math.PI;
         let horisontalDistance = Math.sqrt(Math.pow(cameraToTarget.x, 2) + Math.pow(cameraToTarget.z, 2));
         xAngle += Math.atan2(cameraToTarget.y, horisontalDistance);
+        let rayDir = new vec3([
+            Math.sin(yAngle) * 10,
+            Math.tan(xAngle) * 10,
+            Math.cos(yAngle) * 10
+        ]);
 
-        console.log("ay = " + yAngle + ", ax = " + xAngle);
+        raycasts.push({ point: camPos, dir: rayDir })
+
+        console.log("ay = " + yDegAngle + ", ax = " + xDegAngle + ", camera " + cameraPositionAngle);
     }, false);
 
     requestAnimationFrame(render);
