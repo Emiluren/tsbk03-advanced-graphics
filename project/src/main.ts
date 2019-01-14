@@ -33,33 +33,33 @@ enum Shapes {
 // a level corresponding to the index of the element in question
 
 // Number of segments per branch. Keep low if using high SEG_SPLIT as the number of segments will grow exponentially.
-let CURVE_RES = [5];
+let CURVE_RES = [6];
 // Decides curvature type of branches.
 // 0: Curves upward, !0: S-curve Quite buggy
 let CURVE_BACK = [0];
 
 // Controls magnitude of x-axis curvature in branches
-let CURVE = [Math.PI * 3.2];
+let CURVE = [Math.PI / 3];
 
 // Controls magnitude of y-axis curvature in branches
-let CURVE_V = [2];
+let CURVE_V = [Math.PI / 4];
 
 // Controls amount of clones created each segment.
-let SEG_SPLIT = [2];
+let SEG_SPLIT = [0.5];
 // Controls how much new clones will rotate away from their parents.
-let SPLIT_ANGLE = [Math.PI * 3];
+let SPLIT_ANGLE = [Math.PI * 0.6];
 // Controls lenght of branches
-let LENGTH = [0.5];
+let LENGTH = [0.8];
 
 // Defines shapeRatio mode, see function.
-let SHAPE: Shapes = Shapes.InverseConical;
+let SHAPE: Shapes = Shapes.Cylindrical;
 
 // Decides radius of the tree along the base, which also has an effect on the
 // overall height of the tree.
 let BASE_SIZE = 1;
 
 // Decides overall size of the whole tree.
-let SCALE = 0.5;
+let SCALE = 0.6;
 
 // Controls thickness of branches somehow TODO: improve comment.
 let RATIO = 0.2;
@@ -130,7 +130,7 @@ interface Segment {
 }
 
 let cameraPositionAngle = 0;
-let cameraPositionRadius = 10;
+let cameraPositionRadius = 5;
 let y = 3;
 
 const CAMERA_FOV = 45;
@@ -390,11 +390,8 @@ function cutTree(seg: Segment, rayPos: vec3, rayDir: vec3): boolean {
         let start = seg.transform.multiplyVec3(new vec3([0, 0, 0]));
         let end = child.transform.multiplyVec3(new vec3([0, 0, 0]));
 
-        // console.log(start)
-        // console.log(end)
-
         if (rayIntersectsCylinder(start, end, seg.radius, child.radius, rayPos, rayDir)) {
-            console.log("hit")
+            seg.children.splice(seg.children.indexOf(child), 1);
             return true;
         }
 
@@ -501,7 +498,9 @@ function onLoad(): void {
         rayWorld.normalize();
         rayWorld.scale(10);
 
-        cutTree(tree, camPos, rayWorld);
+        if (cutTree(tree, camPos, rayWorld)) {
+            treeMesh = createTreeMesh(tree);
+        }
     }, false);
 
     requestAnimationFrame(render);
@@ -585,7 +584,7 @@ function generateBranch(level: number, startSegment: number, start: Segment, par
 
     if(CURVE_BACK[level] == 0){
         //Rotate along x axis
-        localRotX = new mat4().setIdentity().rotate(CURVE[level] / CURVE_RES[level] / 180 * Math.PI, new vec3([1, 0, 0]));
+        localRotX = new mat4().setIdentity().rotate(CURVE[level] / CURVE_RES[level], new vec3([1, 0, 0]));
         localRot = localRotY.multiply(localRotX)
         localTransform = localRot.multiply(localTranslation);
     } else {
