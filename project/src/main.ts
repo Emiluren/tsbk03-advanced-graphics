@@ -70,6 +70,7 @@ let TAPER = [1.5];
 
 var canvas : HTMLCanvasElement, gl;
 
+var tree;
 var treeShader, rayShader;
 var treeMesh;
 var mvpLocation, worldLocation;
@@ -128,16 +129,8 @@ interface Segment {
     transform: mat4
 }
 
-let testTree = {
-    endPoint: new vec3([0, 1, 0]),
-    children: [
-        { endPoint: new vec3([0.5, 2, 0.5]), children: [] },
-        { endPoint: new vec3([-0.1, 2, 0]), children: [] }
-    ]
-}
-
 let cameraPositionAngle = 0;
-let cameraPositionRadius = 5;
+let cameraPositionRadius = 10;
 let y = 3;
 
 const CAMERA_FOV = 45;
@@ -261,8 +254,12 @@ function generateBranchData(startSegment: Segment, endSegment: Segment): BranchM
         let angle = i / BRANCH_RESOLUTION * (2 * Math.PI);
         let x = Math.cos(angle);
         let z = Math.sin(angle);
-        let startEdgePos = startSegment.transform.multiplyVec3(new vec3([x, 0, z]).scale(startSegment.radius));
-        let endEdgePos = endSegment.transform.multiplyVec3(new vec3([x, 0, z]).scale(endSegment.radius));
+        let startEdgePos = startSegment.transform.multiplyVec3(
+            new vec3([x, 0, z]).scale(startSegment.radius)
+        );
+        let endEdgePos = endSegment.transform.multiplyVec3(
+            new vec3([x, 0, z]).scale(endSegment.radius)
+        );
 
         meshPart.vertices[i * 2] = {
             position: startEdgePos,
@@ -283,10 +280,11 @@ function generateBranchData(startSegment: Segment, endSegment: Segment): BranchM
     return meshPart;
 }
 
-function generateAllMeshParts(seg: Segment, parts: BranchMeshPart[]): BranchMeshPart[] {
+function generateAllMeshParts(seg: Segment): BranchMeshPart[] {
+    let parts = [];
     for(let child of seg.children){
         parts.push(generateBranchData(seg, child));
-        generateAllMeshParts(child, parts);
+        parts = parts.concat(generateAllMeshParts(child));
     }
     return parts;
 }
@@ -297,7 +295,7 @@ interface Mesh {
 }
 
 function createTreeMesh(seg: Segment): Mesh {
-    let meshParts = generateAllMeshParts(seg, []);
+    let meshParts = generateAllMeshParts(seg);
 
     let branchAmount = meshParts.length;
     let DATA_PER_VERTEX = 6; // x, y and z coords for both position and normal
@@ -377,11 +375,35 @@ function rayIntersectsCylinder(cylStart: vec3, cylEnd: vec3, startThickness: num
         return false;
     }
 
+    let cylClosestPoint = cylDir.copy().scale(cylClosest).add(cylStart);
+    let rayClosestPoint = rayDir.copy().scale(rayClosest).add(rayPoint);
+
     // get the difference of the two closest points
-    let separation = w.add(cylDir.scale(cylClosest, new vec3())).add(rayDir.scale(rayClosest, new vec3()));  // =  L1(sc) - L2(tc)
+    let separation = cylClosestPoint.copy().subtract(rayClosestPoint);  // =  L1(sc) - L2(tc)
 
     let thicknessAtClosest = endThickness * cylClosest + startThickness * (1 - cylClosest);
     return separation.length() <= thicknessAtClosest;
+}
+
+function cutTree(seg: Segment, rayPos: vec3, rayDir: vec3): boolean {
+    for(let child of seg.children) {
+        let start = seg.transform.multiplyVec3(new vec3([0, 0, 0]));
+        let end = child.transform.multiplyVec3(new vec3([0, 0, 0]));
+
+        // console.log(start)
+        // console.log(end)
+
+        if (rayIntersectsCylinder(start, end, seg.radius, child.radius, rayPos, rayDir)) {
+            console.log("hit")
+            return true;
+        }
+
+        if (cutTree(child, rayPos, rayDir)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -455,7 +477,8 @@ function onLoad(): void {
         { filename: "ray.frag", contents: rayFragmentShader }
     ]);
 
-    treeMesh = createTreeMesh(generateTree());
+    tree = generateTree();
+    treeMesh = createTreeMesh(tree);
     mvpLocation = gl.getUniformLocation(treeShader, "mvp");
     worldLocation = gl.getUniformLocation(treeShader, "world");
 
@@ -478,9 +501,7 @@ function onLoad(): void {
         rayWorld.normalize();
         rayWorld.scale(10);
 
-        raycasts.push({ point: camPos, dir: rayWorld })
-
-        //console.log("ay = " + yDegAngle + ", ax = " + xDegAngle + ", camera " + cameraPositionAngle);
+        cutTree(tree, camPos, rayWorld);
     }, false);
 
     requestAnimationFrame(render);
@@ -594,8 +615,6 @@ function generateBranch(level: number, startSegment: number, start: Segment, par
 
         seg.radius = branchRadius * (1 - unitTaper * i/CURVE_RES[level]);
 
-        console.log("Radius: " + seg.radius);
-
         //Select the current transform for creating the S-shape branch.
         if(CURVE_BACK[level] == 0 || i < CURVE_RES[level] / 2){
             currentTransform = localTransform.multiply(currentTransform);
@@ -612,7 +631,7 @@ function generateBranch(level: number, startSegment: number, start: Segment, par
         if(effectiveSplit >= 1){
             //Split the branch into effectiveSplit + 1 clones. Each clone is
             //generated as a new branch, meaning the current loop should break.
-            let declination = seg.position.length ? 180 - Math.atan(seg.position.y / seg.position.length()) : 0;
+            let declination = seg.position.length ? Math.PI - Math.atan(seg.position.y / seg.position.length()) : 0;
             let angleSplit: number = SPLIT_ANGLE[level] - declination;
             let cloneTranslation: mat4 = new mat4().setIdentity().translate(new vec3([0, segmentOffset, 0]));
             let cloneRotX: mat4 = new mat4().setIdentity().rotate(angleSplit, new vec3([1, 0, 0]));
