@@ -4,12 +4,15 @@ import treeFragmentShader from './shader.frag'
 import rayVertexShader from './ray.vert'
 import rayFragmentShader from './ray.frag'
 
+import sandFragmentShader from './sand.frag'
+
 function shaderType(filename: string): GLenum {
     let typeMap = {
         "shader.vert": gl.VERTEX_SHADER,
         "shader.frag": gl.FRAGMENT_SHADER,
         "ray.vert": gl.VERTEX_SHADER,
-        "ray.frag": gl.FRAGMENT_SHADER
+        "ray.frag": gl.FRAGMENT_SHADER,
+        "sand.frag": gl.FRAGMENT_SHADER
     };
     return typeMap[filename];
 }
@@ -71,9 +74,9 @@ let TAPER = [1.5];
 var canvas : HTMLCanvasElement, gl;
 
 var tree;
-var treeShader, rayShader;
-var treeMesh;
-var mvpLocation, worldLocation;
+var treeShader, rayShader, sandShader;
+var randomTexture;
+var treeMesh, sandMesh;
 
 let leftPressed = false;
 let rightPressed = false;
@@ -159,7 +162,7 @@ function drawRays(proj: mat4) {
                  ray.point.z + ray.dir.z]
         )
     );
-    gl.useProgram(rayShader);
+    gl.useProgram(rayShader.id);
 
     // For the ray debug draw we make a new buffer each frame because
     // its not supposed to be used in ordinary cases.
@@ -167,13 +170,12 @@ function drawRays(proj: mat4) {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.DYNAMIC_DRAW);
 
-    let pos_location = gl.getAttribLocation(rayShader, "a_position");
-    gl.enableVertexAttribArray(pos_location);
+    let posLocation = gl.getAttribLocation(rayShader.id, "a_position");
+    gl.enableVertexAttribArray(posLocation);
 
-    let mvpLoc = gl.getUniformLocation(rayShader, "mvp");
-    gl.uniformMatrix4fv(mvpLoc, false, proj.all());
+    gl.uniformMatrix4fv(rayShader.uniformLocations["mvp"], false, proj.all());
 
-    gl.vertexAttribPointer(pos_location, 3, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(posLocation, 3, gl.FLOAT, false, 0, 0);
     gl.drawArrays(gl.LINES, 0, vertexData.length / 3);
 }
 
@@ -212,11 +214,23 @@ function render(time: number): void {
     proj.multiply(viewMatrix);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.useProgram(treeShader);
+    gl.useProgram(treeShader.id);
     gl.bindVertexArray(treeMesh.vao);
-    gl.uniformMatrix4fv(worldLocation, false, mat4.identity.all());
-    gl.uniformMatrix4fv(mvpLocation, false, proj.all());
+    gl.uniformMatrix4fv(treeShader.uniformLocations["world"], false, mat4.identity.all());
+    gl.uniformMatrix4fv(treeShader.uniformLocations["mvp"], false, proj.all());
+
+    // gl.activeTexture(gl.TEXTURE0);
+    // gl.bindTexture(gl.TEXTURE_2D, randomTexture);
+    // gl.uniform1i(textureLocation, 0);
+
     gl.drawElements(gl.TRIANGLES, treeMesh.indexAmount, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
+
+    gl.useProgram(sandShader.id);
+    gl.bindVertexArray(sandMesh.vao)
+    gl.uniformMatrix4fv(sandShader.uniformLocations["world"], false, mat4.identity.all());
+    gl.uniformMatrix4fv(sandShader.uniformLocations["mvp"], false, proj.all());
+    gl.drawElements(gl.TRIANGLES, sandMesh.indexAmount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
 
     if (raycasts.length > 0) {
@@ -289,16 +303,22 @@ function generateAllMeshParts(seg: Segment): BranchMeshPart[] {
     return parts;
 }
 
+interface ShaderProgram {
+    id: WebGLProgram;
+    uniformLocations: {[key: string]: WebGLUniformLocation};
+}
+
 interface Mesh {
     vao: WebGLVertexArrayObject;
     indexAmount: number;
 }
 
+let DATA_PER_VERTEX = 6; // x, y and z coords for both position and normal
+
 function createTreeMesh(seg: Segment): Mesh {
     let meshParts = generateAllMeshParts(seg);
 
     let branchAmount = meshParts.length;
-    let DATA_PER_VERTEX = 6; // x, y and z coords for both position and normal
     let VERTEX_ARRAY_SIZE = BRANCH_VERTEX_AMOUNT * branchAmount * DATA_PER_VERTEX;
     let numIndices = BRANCH_INDEX_AMOUNT * branchAmount;
 
@@ -328,15 +348,64 @@ function createTreeMesh(seg: Segment): Mesh {
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
 
-    let pos_location = gl.getAttribLocation(treeShader, "a_position");
-    let norm_location = gl.getAttribLocation(treeShader, "a_normal");
-    gl.enableVertexAttribArray(pos_location);
-    gl.enableVertexAttribArray(norm_location);
+    let posLocation = gl.getAttribLocation(treeShader.id, "a_position");
+    let normLocation = gl.getAttribLocation(treeShader.id, "a_normal");
+    gl.enableVertexAttribArray(posLocation);
+    gl.enableVertexAttribArray(normLocation);
 
     // Normals come after positions in the array
     let size = 3, normalize = false, stride = DATA_PER_VERTEX * 4;
-    gl.vertexAttribPointer(pos_location, size, gl.FLOAT, normalize, stride, 0);
-    gl.vertexAttribPointer(norm_location, size, gl.FLOAT, normalize, stride, 12);
+    gl.vertexAttribPointer(posLocation, size, gl.FLOAT, normalize, stride, 0);
+    gl.vertexAttribPointer(normLocation, size, gl.FLOAT, normalize, stride, 12);
+
+    // Buffer indices
+    let indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+    return {vao: vao, indexAmount: numIndices };
+}
+
+// TODO: merge with createTreeMesh
+function createSandMesh(): Mesh {
+    let VERTEX_ARRAY_SIZE = 9 * DATA_PER_VERTEX;
+    let numIndices = 3 * 8;
+
+    let vertexData = new Float32Array(VERTEX_ARRAY_SIZE);
+    let indices = new Uint16Array(numIndices);
+
+    vertexData.set([0, 0, 0], 0);
+    vertexData.set([0, 1, 0], 3);
+
+    // Indices need to be offset based on their position in the final array
+    for (let i = 0; i < 8; i++) {
+        let endIndex = i == 7 ? 1 : i + 2;
+        indices.set([0, i + 1, endIndex], i * 3);
+
+        let angle = Math.PI / 4.5;
+        vertexData.set(
+            [Math.cos(angle) * 5, -0.1, Math.sin(angle) * 5,
+             0, 1, 0],
+            (1 + i) * DATA_PER_VERTEX
+        );
+    }
+
+    let vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    let buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+
+    let posLocation = gl.getAttribLocation(sandShader.id, "a_position");
+    let normLocation = gl.getAttribLocation(sandShader.id, "a_normal");
+    gl.enableVertexAttribArray(posLocation);
+    gl.enableVertexAttribArray(normLocation);
+
+    // Normals come after positions in the array
+    let size = 3, normalize = false, stride = DATA_PER_VERTEX * 4;
+    gl.vertexAttribPointer(posLocation, size, gl.FLOAT, normalize, stride, 0);
+    gl.vertexAttribPointer(normLocation, size, gl.FLOAT, normalize, stride, 12);
 
     // Buffer indices
     let indexBuffer = gl.createBuffer();
@@ -426,26 +495,60 @@ function createShader(type: number, source: string): WebGLShader {
     }
 }
 
-function createProgram(shaderSources: Array<Resource>): WebGLProgram {
-    var program = gl.createProgram();
+function createProgram(shaderSources: Resource[], uniforms: string[]): ShaderProgram {
+    let programId = gl.createProgram();
     for (let shaderData of shaderSources) {
         let shader = createShader(
             shaderType(shaderData.filename),
             shaderData.contents
         );
-        gl.attachShader(program, shader);
+        gl.attachShader(programId, shader);
     }
-    gl.linkProgram(program);
+    gl.linkProgram(programId);
 
     // Log an error if the compilation failed
-    var success = gl.getProgramParameter(program, gl.LINK_STATUS);
+    let success = gl.getProgramParameter(programId, gl.LINK_STATUS);
     if (success) {
+        let program = { id: programId, uniformLocations: {} };
+        for (let uniformName of uniforms) {
+            program.uniformLocations[uniformName] =
+                gl.getUniformLocation(programId, uniformName);
+        }
         return program;
     } else {
-        console.log(gl.getProgramInfoLog(program));
-        gl.deleteProgram(program);
+        console.log(gl.getProgramInfoLog(programId));
+        gl.deleteProgram(programId);
         return null;
     }
+}
+
+function loadTexture(url) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const width = 1;
+    const height = 1;
+    const border = 0;
+    const srcFormat = gl.RGBA;
+    const srcType = gl.UNSIGNED_BYTE;
+    const pixel = new Uint8Array([0, 0, 255, 255]);
+    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                  width, height, border, srcFormat, srcType,
+                  pixel);
+
+    const image = new Image();
+    image.onload = function() {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                      srcFormat, srcType, image);
+
+        gl.generateMipmap(gl.TEXTURE_2D);
+    };
+    image.src = url;
+
+    return texture;
 }
 
 // This is only used for debugging
@@ -463,21 +566,36 @@ function onLoad(): void {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
 
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    gl.clearColor(0.7, 0.7, 1.0, 1.0);
     treeShader = createProgram([
         { filename: "shader.vert", contents: treeVertexShader },
         { filename: "shader.frag", contents: treeFragmentShader }
-    ]);
+    ], ["mvp", "world"]);
 
     rayShader = createProgram([
         { filename: "ray.vert", contents: rayVertexShader },
         { filename: "ray.frag", contents: rayFragmentShader }
-    ]);
+    ], ["mvp"]);
+
+    sandShader = createProgram([
+        { filename: "shader.vert", contents: treeVertexShader },
+        { filename: "sand.frag", contents: sandFragmentShader }
+    ], ["mvp", "world"]);
+
+    //randomTexture = loadTexture("random.png");
 
     tree = generateTree();
     treeMesh = createTreeMesh(tree);
-    mvpLocation = gl.getUniformLocation(treeShader, "mvp");
-    worldLocation = gl.getUniformLocation(treeShader, "world");
+    //textureLocation = gl.getUniformLocation(treeShader, "tex_noise");
+    // let worleyPointsLocation = gl.getUniformLocation(treeShader, "worley_points");
+    // let worleyPoints = new Float32Array(1000 * 3);
+
+    // for (let i = 0; i < 3000; i++) {
+    //     worleyPoints[i] = Math.random();
+    // }
+    // gl.uniform3fv(worleyPointsLocation, worleyPoints);
+
+    sandMesh = createSandMesh();
 
     canvas.addEventListener('click', (event) => {
         let camPos = cameraPosition()
