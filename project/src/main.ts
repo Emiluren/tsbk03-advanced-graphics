@@ -366,10 +366,18 @@ function createTreeMesh(seg: Segment): Mesh {
     return {vao: vao, indexAmount: numIndices };
 }
 
-// TODO: merge with createTreeMesh
+// Create the upper half of a sphere as ground
 function createSandMesh(): Mesh {
-    let VERTEX_ARRAY_SIZE = 9 * DATA_PER_VERTEX;
-    let numIndices = 3 * 8;
+    let VERTEX_RING_AMOUNT = 32;
+    let numRings = 5;
+    let numVertices = 1 + VERTEX_RING_AMOUNT * numRings;
+    let VERTEX_ARRAY_SIZE = numVertices * DATA_PER_VERTEX;
+    let GROUND_RADIUS = 5
+
+    let indicesInFirstRing = VERTEX_RING_AMOUNT * 3;
+    let indicesInOtherRings = VERTEX_RING_AMOUNT * 6;
+    let numIndices = indicesInFirstRing +
+        indicesInOtherRings * (numRings - 1);
 
     let vertexData = new Float32Array(VERTEX_ARRAY_SIZE);
     let indices = new Uint16Array(numIndices);
@@ -377,19 +385,50 @@ function createSandMesh(): Mesh {
     vertexData.set([0, 0, 0], 0);
     vertexData.set([0, 1, 0], 3);
 
-    // Indices need to be offset based on their position in the final array
-    for (let i = 0; i < 8; i++) {
-        let endIndex = i == 7 ? 1 : i + 2;
-        indices.set([0, i + 1, endIndex], i * 3);
+    // Create vertices for all rings
+    for (let ring_i = 0; ring_i < numRings; ring_i++) {
+        for (let i = 0; i < VERTEX_RING_AMOUNT; i++) {
+            let tiltAngle = Math.PI / (numRings * 2) * (ring_i + 1);
+            let planeAngle = 2 * Math.PI / VERTEX_RING_AMOUNT * i;
+            let x = Math.cos(planeAngle) * Math.sin(tiltAngle);
+            let y = Math.cos(tiltAngle);
+            let z = Math.sin(planeAngle) * Math.sin(tiltAngle);
 
-        let angle = Math.PI / 4.5;
-        vertexData.set(
-            [Math.cos(angle) * 5, -0.1, Math.sin(angle) * 5,
-             0, 1, 0],
-            (1 + i) * DATA_PER_VERTEX
-        );
+            vertexData.set(
+                [GROUND_RADIUS * x, -GROUND_RADIUS * (1 - y), GROUND_RADIUS * z,
+                 x, y, z],
+                (1 + i + VERTEX_RING_AMOUNT * ring_i) * DATA_PER_VERTEX
+            );
+        }
     }
 
+    // Create triangles for inner ring
+    for (let i = 0; i < VERTEX_RING_AMOUNT; i++) {
+        let endIndex = i == VERTEX_RING_AMOUNT - 1 ? 1 : i + 2;
+        indices.set([0, i + 1, endIndex], i * 3);
+    }
+
+    // Create triangles for other rings
+    for (let ring_i = 0; ring_i < numRings - 1; ring_i++) {
+        for (let i = 0; i < VERTEX_RING_AMOUNT; i++) {
+            let ringStartIndex1 = 1 + ring_i * VERTEX_RING_AMOUNT;
+
+            // Two indices each on two consecutive rings
+            let startIndex1 = ringStartIndex1 + i;
+            let endIndex1 = i == VERTEX_RING_AMOUNT - 1 ?
+                ringStartIndex1 : startIndex1 + 1;
+
+            let startIndex2 = startIndex1 + VERTEX_RING_AMOUNT;
+            let endIndex2 = endIndex1 + VERTEX_RING_AMOUNT;
+
+            let indexOffset =
+                indicesInFirstRing + indicesInOtherRings * ring_i + i * 6;
+            indices.set([startIndex1, startIndex2, endIndex1], indexOffset);
+            indices.set([startIndex2, endIndex2, endIndex1], indexOffset + 3);
+        }
+    }
+
+    // TODO: merge with createTreeMesh maybe into a generic create mesh function
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
@@ -582,18 +621,8 @@ function onLoad(): void {
         { filename: "sand.frag", contents: sandFragmentShader }
     ], ["mvp", "world"]);
 
-    //randomTexture = loadTexture("random.png");
-
     tree = generateTree();
     treeMesh = createTreeMesh(tree);
-    //textureLocation = gl.getUniformLocation(treeShader, "tex_noise");
-    // let worleyPointsLocation = gl.getUniformLocation(treeShader, "worley_points");
-    // let worleyPoints = new Float32Array(1000 * 3);
-
-    // for (let i = 0; i < 3000; i++) {
-    //     worleyPoints[i] = Math.random();
-    // }
-    // gl.uniform3fv(worleyPointsLocation, worleyPoints);
 
     sandMesh = createSandMesh();
 
