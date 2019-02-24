@@ -315,6 +315,32 @@ interface Mesh {
 
 let DATA_PER_VERTEX = 6; // x, y and z coords for both position and normal
 
+function createMesh(vertexData: Float32Array, indices: Uint16Array, shaderId: WebGLProgram) {
+    let vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    let buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+
+    let posLocation = gl.getAttribLocation(shaderId, "a_position");
+    let normLocation = gl.getAttribLocation(shaderId, "a_normal");
+    gl.enableVertexAttribArray(posLocation);
+    gl.enableVertexAttribArray(normLocation);
+
+    // Normals come after positions in the array
+    let size = 3, normalize = false, stride = DATA_PER_VERTEX * 4;
+    gl.vertexAttribPointer(posLocation, size, gl.FLOAT, normalize, stride, 0);
+    gl.vertexAttribPointer(normLocation, size, gl.FLOAT, normalize, stride, 12);
+
+    // Buffer indices
+    let indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+    return {vao: vao, indexAmount: indices.length };
+}
+
 function createTreeMesh(seg: Segment): Mesh {
     let meshParts = generateAllMeshParts(seg);
 
@@ -341,29 +367,7 @@ function createTreeMesh(seg: Segment): Mesh {
         }
     }
 
-    let vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-
-    let buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
-
-    let posLocation = gl.getAttribLocation(treeShader.id, "a_position");
-    let normLocation = gl.getAttribLocation(treeShader.id, "a_normal");
-    gl.enableVertexAttribArray(posLocation);
-    gl.enableVertexAttribArray(normLocation);
-
-    // Normals come after positions in the array
-    let size = 3, normalize = false, stride = DATA_PER_VERTEX * 4;
-    gl.vertexAttribPointer(posLocation, size, gl.FLOAT, normalize, stride, 0);
-    gl.vertexAttribPointer(normLocation, size, gl.FLOAT, normalize, stride, 12);
-
-    // Buffer indices
-    let indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-
-    return {vao: vao, indexAmount: numIndices };
+    return createMesh(vertexData, indices, treeShader.id);
 }
 
 // Create the upper half of a sphere as ground
@@ -428,30 +432,7 @@ function createSandMesh(): Mesh {
         }
     }
 
-    // TODO: merge with createTreeMesh maybe into a generic create mesh function
-    let vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-
-    let buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
-
-    let posLocation = gl.getAttribLocation(sandShader.id, "a_position");
-    let normLocation = gl.getAttribLocation(sandShader.id, "a_normal");
-    gl.enableVertexAttribArray(posLocation);
-    gl.enableVertexAttribArray(normLocation);
-
-    // Normals come after positions in the array
-    let size = 3, normalize = false, stride = DATA_PER_VERTEX * 4;
-    gl.vertexAttribPointer(posLocation, size, gl.FLOAT, normalize, stride, 0);
-    gl.vertexAttribPointer(normLocation, size, gl.FLOAT, normalize, stride, 12);
-
-    // Buffer indices
-    let indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
-
-    return {vao: vao, indexAmount: numIndices };
+    return createMesh(vertexData, indices, sandShader.id);
 }
 
 // Based on http://geomalgorithms.com/a07-_distance.html
