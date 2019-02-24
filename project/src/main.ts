@@ -1,25 +1,15 @@
-import treeVertexShader from './shader.vert'
+import genericVertexShader from './shader.vert'
+
 import treeFragmentShader from './shader.frag'
+import sandFragmentShader from './sand.frag'
+import waterFragmentShader from './water.frag'
 
 import rayVertexShader from './ray.vert'
 import rayFragmentShader from './ray.frag'
 
-import sandFragmentShader from './sand.frag'
-
-function shaderType(filename: string): GLenum {
-    let typeMap = {
-        "shader.vert": gl.VERTEX_SHADER,
-        "shader.frag": gl.FRAGMENT_SHADER,
-        "ray.vert": gl.VERTEX_SHADER,
-        "ray.frag": gl.FRAGMENT_SHADER,
-        "sand.frag": gl.FRAGMENT_SHADER
-    };
-    return typeMap[filename];
-}
-
-import mat4 from 'tsm/src/mat4'
 import vec4 from 'tsm/src/vec4'
 import vec3 from 'tsm/src/vec3'
+import mat4 from 'tsm/src/mat4'
 
 enum Shapes {
     Conical,
@@ -74,9 +64,9 @@ let TAPER = [1.5];
 var canvas : HTMLCanvasElement, gl;
 
 var tree;
-var treeShader, rayShader, sandShader;
+var treeShader, rayShader, sandShader, waterShader;
 var randomTexture;
-var treeMesh, sandMesh;
+var treeMesh, sandMesh, waterMesh;
 
 let leftPressed = false;
 let rightPressed = false;
@@ -114,8 +104,8 @@ window.addEventListener('keyup', (event) => {
     event.preventDefault();
 }, true);
 
-interface Resource {
-    filename: string;
+interface ShaderSource {
+    shaderType: GLenum;
     contents: string;
 }
 
@@ -179,6 +169,15 @@ function drawRays(proj: mat4) {
     gl.drawArrays(gl.LINES, 0, vertexData.length / 3);
 }
 
+function drawMesh(mesh: Mesh, shader: ShaderProgram, worldMatrix: mat4, mvpMatrix: mat4): void {
+    gl.useProgram(shader.id);
+    gl.bindVertexArray(mesh.vao);
+    gl.uniformMatrix4fv(shader.uniformLocations["world"], false, worldMatrix.all());
+    gl.uniformMatrix4fv(shader.uniformLocations["mvp"], false, mvpMatrix.all());
+    gl.drawElements(gl.TRIANGLES, mesh.indexAmount, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
+}
+
 let lastRenderTime = 0;
 function render(time: number): void {
     let dt = Math.min((time - lastRenderTime) / 1000, 1 / 30);
@@ -214,24 +213,10 @@ function render(time: number): void {
     proj.multiply(viewMatrix);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.useProgram(treeShader.id);
-    gl.bindVertexArray(treeMesh.vao);
-    gl.uniformMatrix4fv(treeShader.uniformLocations["world"], false, mat4.identity.all());
-    gl.uniformMatrix4fv(treeShader.uniformLocations["mvp"], false, proj.all());
 
-    // gl.activeTexture(gl.TEXTURE0);
-    // gl.bindTexture(gl.TEXTURE_2D, randomTexture);
-    // gl.uniform1i(textureLocation, 0);
-
-    gl.drawElements(gl.TRIANGLES, treeMesh.indexAmount, gl.UNSIGNED_SHORT, 0);
-    gl.bindVertexArray(null);
-
-    gl.useProgram(sandShader.id);
-    gl.bindVertexArray(sandMesh.vao)
-    gl.uniformMatrix4fv(sandShader.uniformLocations["world"], false, mat4.identity.all());
-    gl.uniformMatrix4fv(sandShader.uniformLocations["mvp"], false, proj.all());
-    gl.drawElements(gl.TRIANGLES, sandMesh.indexAmount, gl.UNSIGNED_SHORT, 0);
-    gl.bindVertexArray(null);
+    drawMesh(treeMesh, treeShader, mat4.identity, proj);
+    drawMesh(sandMesh, sandShader, mat4.identity, proj);
+    drawMesh(waterMesh, waterShader, mat4.identity, proj);
 
     if (raycasts.length > 0) {
         drawRays(proj);
@@ -435,6 +420,26 @@ function createSandMesh(): Mesh {
     return createMesh(vertexData, indices, sandShader.id);
 }
 
+function createWaterMesh(): Mesh {
+    let OCEAN_RADIUS = 20;
+    let OCEAN_VERTICES = 32;
+    
+    let vertexData = new Float32Array((OCEAN_VERTICES + 1) * DATA_PER_VERTEX);
+    let indices = new Uint16Array(OCEAN_VERTICES * 3);
+
+    vertexData.set([0, -3, 0, 0, 1, 0]);
+    for (let i = 0; i < OCEAN_VERTICES; i++) {
+        let angle = 2 * Math.PI / OCEAN_VERTICES * i;
+        let x = Math.cos(angle) * OCEAN_RADIUS;
+        let z = Math.sin(angle) * OCEAN_RADIUS;
+        vertexData.set([x, -3, z, 0, 1, 0], (1 + i) * DATA_PER_VERTEX);
+        indices.set([0, i + 1, ((i + 1) % OCEAN_VERTICES) + 1], i * 3);
+    }
+    console.log(vertexData);
+
+    return createMesh(vertexData, indices, waterShader.id);
+}
+
 // Based on http://geomalgorithms.com/a07-_distance.html
 function rayIntersectsCylinder(cylStart: vec3, cylEnd: vec3, startThickness: number, endThickness: number, rayPoint: vec3, rayDir: vec3): boolean {
     let cylDir = vec3.difference(cylEnd, cylStart);
@@ -515,13 +520,10 @@ function createShader(type: number, source: string): WebGLShader {
     }
 }
 
-function createProgram(shaderSources: Resource[], uniforms: string[]): ShaderProgram {
+function createProgram(shaderSources: ShaderSource[], uniforms: string[]): ShaderProgram {
     let programId = gl.createProgram();
     for (let shaderData of shaderSources) {
-        let shader = createShader(
-            shaderType(shaderData.filename),
-            shaderData.contents
-        );
+        let shader = createShader(shaderData.shaderType, shaderData.contents);
         gl.attachShader(programId, shader);
     }
     gl.linkProgram(programId);
@@ -588,24 +590,30 @@ function onLoad(): void {
 
     gl.clearColor(0.7, 0.7, 1.0, 1.0);
     treeShader = createProgram([
-        { filename: "shader.vert", contents: treeVertexShader },
-        { filename: "shader.frag", contents: treeFragmentShader }
+        { shaderType: gl.VERTEX_SHADER, contents: genericVertexShader },
+        { shaderType: gl.FRAGMENT_SHADER, contents: treeFragmentShader }
     ], ["mvp", "world"]);
 
     rayShader = createProgram([
-        { filename: "ray.vert", contents: rayVertexShader },
-        { filename: "ray.frag", contents: rayFragmentShader }
+        { shaderType: gl.VERTEX_SHADER, contents: rayVertexShader },
+        { shaderType: gl.FRAGMENT_SHADER, contents: rayFragmentShader }
     ], ["mvp"]);
 
     sandShader = createProgram([
-        { filename: "shader.vert", contents: treeVertexShader },
-        { filename: "sand.frag", contents: sandFragmentShader }
+        { shaderType: gl.VERTEX_SHADER, contents: genericVertexShader },
+        { shaderType: gl.FRAGMENT_SHADER, contents: sandFragmentShader }
+    ], ["mvp", "world"]);
+
+    waterShader = createProgram([
+        { shaderType: gl.VERTEX_SHADER, contents: genericVertexShader },
+        { shaderType: gl.FRAGMENT_SHADER, contents: waterFragmentShader }
     ], ["mvp", "world"]);
 
     tree = generateTree();
     treeMesh = createTreeMesh(tree);
 
     sandMesh = createSandMesh();
+    waterMesh = createWaterMesh();
 
     canvas.addEventListener('click', (event) => {
         let camPos = cameraPosition()
