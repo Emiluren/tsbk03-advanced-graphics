@@ -1,6 +1,6 @@
 import genericVertexShader from './shader.vert'
 
-import treeFragmentShader from './shader.frag'
+import treeFragmentShader from './tree.frag'
 import sandFragmentShader from './sand.frag'
 import waterFragmentShader from './water.frag'
 
@@ -435,7 +435,6 @@ function createWaterMesh(): Mesh {
         vertexData.set([x, -3, z, 0, 1, 0], (1 + i) * DATA_PER_VERTEX);
         indices.set([0, i + 1, ((i + 1) % OCEAN_VERTICES) + 1], i * 3);
     }
-    console.log(vertexData);
 
     return createMesh(vertexData, indices, waterShader.id);
 }
