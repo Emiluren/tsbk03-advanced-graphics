@@ -19,37 +19,34 @@ enum Shapes {
 // a level corresponding to the index of the element in question
 
 // Number of segments per branch. Keep low if using high SEG_SPLIT as the number of segments will grow exponentially.
-let CURVE_RES = [4, 2, 2];
-// Decides curvature type of branches.
-// 0: Curves upward, !0: S-curve Quite buggy
-let CURVE_BACK = [0, 0, 0];
+let CURVE_RES = [3, 2, 2];
 
 // Controls magnitude of x-axis curvature in branches
-let CURVE = [Math.PI / 3, Math.PI / 2, Math.PI / 14];
+let CURVE = [Math.PI * 0.3, Math.PI / 2, Math.PI / 14];
 
 // Controls magnitude of y-axis curvature in branches
-let CURVE_V = [Math.PI / 4, Math.PI / 1.5, Math.PI / 3];
+let CURVE_V = [Math.PI * 0.3, Math.PI / 1.5, Math.PI / 3];
 
 // Controls amount of clones created each segment.
-let SEG_SPLIT = [1, 0, 0];
+let SEG_SPLIT = [0, 0, 0];
 // Controls how much new clones will rotate away from their parents.
-let SPLIT_ANGLE = [Math.PI * 0.6, Math.PI / 4, Math.PI / 43];
+let SPLIT_ANGLE = [0, Math.PI / 4, Math.PI / 43];
 // Controls lenght of branches
-let LENGTH = [0.8, 0.4, 0];
+let LENGTH = [2, 0.4, 0];
 
 // Defines shapeRatio mode, see function.
 let SHAPE: Shapes = Shapes.Cylindrical;
 
 // Decides radius of the tree along the base, which also has an effect on the
 // overall height of the tree.
-let BASE_SIZE = 1;
+let BASE_SIZE = 0.5;
 
 // Decides overall size of the whole tree.
-let SCALE = 0.6;
+let SCALE = 0.5;
 
 // Controls thickness of branches somehow TODO: improve comment.
-let RATIO = 0.2;
-let RATIO_POWER = 1;
+let RATIO = 0.1;
+let RATIO_POWER = 2;
 
 // Controls amount of tapering of branch thickness [0, 3].
 let TAPER = [1.5, 2, 0];
@@ -133,14 +130,6 @@ interface Segment {
     position: vec3
     children: Segment[]
     transform: mat4
-}
-
-let testTree = {
-    endPoint: new vec3([0, 1, 0]),
-    children: [
-        { endPoint: new vec3([0.5, 2, 0.5]), children: [] },
-        { endPoint: new vec3([-0.1, 2, 0]), children: [] }
-    ]
 }
 
 let cameraPositionAngle = 0;
@@ -471,13 +460,7 @@ function createBranchData(parent: BranchData, offset: number): BranchData {
     }
 
     //Calculate angles for branch curvature.
-    if(CURVE_BACK[data.level] == 0){
-        data.angle = CURVE[data.level] / CURVE_RES[data.level] / 180 * Math.PI;
-    } else {
-        data.angle = CURVE[data.level] / (CURVE_RES[data.level] / 2);
-        data.angleBack = CURVE_BACK[data.level] / (CURVE_RES[data.level] / 2);
-    }
-
+    data.angle = CURVE[data.level] / CURVE_RES[data.level] / 180 * Math.PI;
     return data;
 }
 
@@ -564,32 +547,15 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
     let currentTransform: mat4 = start.transform;
     let localTranslation: mat4 = new mat4().setIdentity().translate(new vec3([0, data.segmentOffset, 0]));
     let localRot: mat4;
-    let localRotEnd: mat4;
     let localRotX: mat4;
-    let localRotXEnd: mat4; //Angle end half of segments should rotate in S-branches.
     let localRotY: mat4 = new mat4().setIdentity().rotate(CURVE_V[data.level] / CURVE_RES[data.level], new vec3([0, 1, 0]));
 
     let localTransform: mat4;
-    let localTransformEnd: mat4; //For the end of S-branches;
 
-    if(CURVE_BACK[data.level] == 0){
-        //Rotate along x axis
-        localRotX = new mat4().setIdentity().rotate(data.angle, new vec3([1, 0, 0]));
-        localRot = localRotY.multiply(localRotX)
-        localTransform = localRot.multiply(localTranslation);
-    } else {
-        //S-shaped branch.
-        //Rotate first halv of the branches' segments one way, and the other
-        //half the other other way
-        //Calculate the different rotation matrices for the S-branch rotations.
-        localRotX = new mat4().setIdentity().rotate(data.angle, new vec3([1, 0, 0]));
-        localRotXEnd = new mat4().setIdentity().rotate(-data.angleBack, new vec3([1, 0, 0]));
-        localRot = localRotY.copy().multiply(localRotX);
-        localRotEnd = localRotY.multiply(localRotXEnd);
-        //Create the total transformations for the different parts of the S-branch.
-        localTransform = localRot.multiply(localTranslation);
-        localTransformEnd = localRotEnd.multiply(localTranslation);
-    }
+    //Rotate along x axis
+    localRotX = new mat4().setIdentity().rotate(data.angle, new vec3([1, 0, 0]));
+    localRot = localRotY.multiply(localRotX)
+    localTransform = localRot.multiply(localTranslation);
 
     for(let i = startSegment; i <= CURVE_RES[data.level]; ++i){
         let seg: Segment = {
@@ -601,14 +567,11 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
 
         seg.radius = data.branchRadius * (1 - data.unitTaper * i/CURVE_RES[data.level]);
 
-        //Select the current transform for creating the S-shape branch.
-        if(CURVE_BACK[data.level] == 0 || i < CURVE_RES[data.level] / 2){
-            currentTransform = localTransform.multiply(currentTransform);
-        } else {
-            currentTransform = localTransformEnd.multiply(currentTransform);
-        }
-        seg.position = currentTransform.multiplyVec3(seg.position);
-        seg.transform = currentTransform;
+        //Add parent transform to the branch' local one.
+        localTransform = currentTransform.copy().multiply(localTransform);
+        // localTransform.multiply(currentTransform);
+        seg.position = localTransform.multiplyVec3(seg.position);
+        seg.transform = localTransform;
         current.children.push(seg);
 
         //Split and clone the branch.
@@ -618,13 +581,14 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
         if(effectiveSplit >= 1){
             //Split the branch into effectiveSplit + 1 clones. Each clone is
             //generated as a new branch, meaning the current loop should break.
-            let declination = seg.position.length ? Math.PI - Math.atan(seg.position.y / seg.position.length()) : 0;
+            let xz_length = Math.sqrt(seg.position.x**2 + seg.position.z**2);
+            let declination = xz_length ? Math.PI / 2 - Math.atan(seg.position.y / xz_length) : 0;
+            console.log("Declination: " + declination / Math.PI * 180);
             let angleSplit: number = SPLIT_ANGLE[data.level] - declination;
             let cloneTranslation: mat4 = new mat4().setIdentity().translate(new vec3([0, data.segmentOffset, 0]));
             let cloneRotX: mat4 = new mat4().setIdentity().rotate(angleSplit, new vec3([1, 0, 0]));
 
             for(let j: number = 0; j <= effectiveSplit + 1; ++j){
-                console.log("Generating clone!");
                 let cloneAngle = (Math.PI /  + 0.75 * (Math.PI / 6 + Math.abs(declination - Math.PI / 2)) * Math.random()**2) * (Math.round(Math.random()) ? -1 : 1);
                 let cloneRotY: mat4 = new mat4().setIdentity().rotate(cloneAngle, new vec3([0, 1, 0]));
                 let clone: Segment = {
@@ -635,7 +599,7 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
                 };
                 clone.radius = data.branchRadius * (1 - data.unitTaper * (i/CURVE_RES[data.level]));
                 let cloneRot: mat4 = cloneRotY.multiply(cloneRotX);
-                let cloneTransform: mat4 = cloneRot.multiply(cloneTranslation).multiply(currentTransform);
+                let cloneTransform: mat4 = currentTransform.copy().multiply(cloneTranslation).multiply(cloneRot);
                 clone.position = cloneTransform.multiplyVec3(clone.position);
                 clone.transform = cloneTransform;
                 seg.children.push(clone);
