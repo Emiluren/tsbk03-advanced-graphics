@@ -39,7 +39,7 @@ let SEG_SPLIT = [0.9, 0, 0];
 // Controls how much new clones will rotate away from their parents.
 let SPLIT_ANGLE = [Math.PI * 0.3, Math.PI / 4, Math.PI / 43];
 // Controls lenght of branches
-let LENGTH = [1, 0.4, 0];
+let LENGTH = [4, 0.4, 0];
 
 // Defines shapeRatio mode, see function.
 let SHAPE: Shapes = Shapes.Cylindrical;
@@ -143,7 +143,7 @@ interface Segment {
 }
 
 let cameraPositionAngle = 0;
-let cameraPositionRadius = 5;
+let cameraPositionRadius = 10;
 let y = 3;
 
 const CAMERA_FOV = 45;
@@ -358,8 +358,6 @@ function createMesh(vertexData: Float32Array, indices: Uint16Array, shaderId: We
 
 function createTreeMesh(seg: Segment): Mesh {
     let meshParts = generateAllMeshParts(seg, 0);
-    console.log(meshParts.vertices);
-    console.log(meshParts.indices);
 
     let indices = new Uint16Array(meshParts.indices);
 
@@ -404,7 +402,7 @@ function createSandMesh(): Mesh {
             let z = Math.sin(planeAngle) * Math.sin(tiltAngle);
 
             vertexData.set(
-                [GROUND_RADIUS * x, -GROUND_RADIUS * (1 - y), GROUND_RADIUS * z,
+                [GROUND_RADIUS * x, -GROUND_RADIUS * (0.9 - y), GROUND_RADIUS * z,
                  x, y, z],
                 (1 + i + VERTEX_RING_AMOUNT * ring_i) * DATA_PER_VERTEX
             );
@@ -744,14 +742,13 @@ function createBranchData(parent: BranchData, offset: number): BranchData {
     }
 
     //Calculate angles for branch curvature.
-    data.angle = CURVE[data.level] / CURVE_RES[data.level] / 180 * Math.PI;
+    data.angle = CURVE[data.level] / CURVE_RES[data.level];
     return data;
 }
 
 //Traverses a given branch and places new child roots along its length, these can then be used to grow new branches
 //eventually populating the entire tree.
 function generateChildBranches(start: Segment, data: BranchData, startOffset: number): void {
-    console.log("Generating child branches!");
     let segments: number = 0; //Number of segments climbed past in the traversal.
     //Since a branch may split into clones we must keep track of a frontier of segments who will parent the new children.
     let segmentFrontier: Segment[] = [start];
@@ -762,7 +759,6 @@ function generateChildBranches(start: Segment, data: BranchData, startOffset: nu
     let childOffset: number = ((data.branchLength - startOffset) * 0.8) / data.childBranches;
     let totalOffset: number = startOffset; //Total length traversed across the branches so faar.
     //Loop once for every new child that should be created along this branch.
-    console.log("Will generate " + data.childBranches + " branches!");
     for(let branches: number = 0; branches < data.childBranches; ++branches){
         //Check if we have moved past a segment already.
         if (totalOffset > startOffset + branches * childOffset){
@@ -824,9 +820,6 @@ function generateChildBranches(start: Segment, data: BranchData, startOffset: nu
 // startSegment: If this branch has been split, this should state which number on the branch the next segment will be
 // start: The root segment from which this branch springs.
 function generateBranch(data: BranchData, startSegment: number, start: Segment): Segment{
-    console.log("Branch length: " + data.branchLength);
-    console.log("Segment offset: " + data.segmentOffset);
-    console.log("Theoretical height: " + data.segmentOffset * CURVE_RES[data.level]);
     let effectiveSplit: number = 0.0;
 
     let current: Segment = start;
@@ -844,7 +837,6 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
 
     for(let i = startSegment; i <= CURVE_RES[data.level]; ++i){
         localTransform = localTranslation.copy().multiply(localRot);
-        console.log("Generating new segment!");
         let seg: Segment = {
             radius: 0,
             position: new vec3([0, 0, 0]),
@@ -857,7 +849,6 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
         //Add parent transform to the branch' local one.
         localTransform = currentTransform.copy().multiply(localTransform);
         seg.position = localTransform.multiplyVec3(seg.position);
-        console.log("Segment placed at: " + seg.position.xyz)
         seg.transform = localTransform;
         current.children.push(seg);
 
@@ -910,7 +901,6 @@ function generateTree(): Segment {
         transform: new mat4().setIdentity()
     };
     let stemData: BranchData = createBranchData(null, 0);
-    console.log("data: " + JSON.stringify(stemData));
     generateBranch(stemData, 0, root);
     generateChildBranches(root, stemData, CHILD_OFFSET);
     return root;
