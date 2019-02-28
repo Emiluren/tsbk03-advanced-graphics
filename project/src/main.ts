@@ -19,7 +19,7 @@ enum Shapes {
 // a level corresponding to the index of the element in question
 
 // Number of segments per branch. Keep low if using high SEG_SPLIT as the number of segments will grow exponentially.
-let CURVE_RES = [3, 2, 2];
+let CURVE_RES = [4, 2, 2];
 
 // Controls magnitude of x-axis curvature in branches
 let CURVE = [Math.PI * 0.3, Math.PI / 2, Math.PI / 14];
@@ -30,7 +30,7 @@ let CURVE_V = [Math.PI * 0.3, Math.PI / 1.5, Math.PI / 3];
 // Controls amount of clones created each segment.
 let SEG_SPLIT = [0, 0, 0];
 // Controls how much new clones will rotate away from their parents.
-let SPLIT_ANGLE = [0, Math.PI / 4, Math.PI / 43];
+let SPLIT_ANGLE = [Math.PI * 0.3, Math.PI / 4, Math.PI / 43];
 // Controls lenght of branches
 let LENGTH = [2, 0.4, 0];
 
@@ -49,7 +49,7 @@ let RATIO = 0.1;
 let RATIO_POWER = 2;
 
 // Controls amount of tapering of branch thickness [0, 3].
-let TAPER = [1.5, 2, 0];
+let TAPER = [1, 2, 0];
 
 let BRANCHES = [0, 1, 0];
 
@@ -540,7 +540,6 @@ function generateChildBranches(start: Segment, data: BranchData, startOffset: nu
 // startSegment: If this branch has been split, this should state which number on the branch the next segment will be
 // start: The root segment from which this branch springs.
 function generateBranch(data: BranchData, startSegment: number, start: Segment): Segment{
-    //console.log("Generating new level" + " branch originating in " + start.position.xyz)
     let effectiveSplit: number = 0.0;
 
     let current: Segment = start;
@@ -555,9 +554,10 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
     //Rotate along x axis
     localRotX = new mat4().setIdentity().rotate(data.angle, new vec3([1, 0, 0]));
     localRot = localRotY.multiply(localRotX)
-    localTransform = localRot.multiply(localTranslation);
+    localTransform = localTranslation.multiply(localRot);
 
     for(let i = startSegment; i <= CURVE_RES[data.level]; ++i){
+        console.log("Generating new segment!");
         let seg: Segment = {
             radius: 0,
             position: new vec3([0, 0, 0]),
@@ -569,7 +569,6 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
 
         //Add parent transform to the branch' local one.
         localTransform = currentTransform.copy().multiply(localTransform);
-        // localTransform.multiply(currentTransform);
         seg.position = localTransform.multiplyVec3(seg.position);
         seg.transform = localTransform;
         current.children.push(seg);
@@ -583,7 +582,6 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
             //generated as a new branch, meaning the current loop should break.
             let xz_length = Math.sqrt(seg.position.x**2 + seg.position.z**2);
             let declination = xz_length ? Math.PI / 2 - Math.atan(seg.position.y / xz_length) : 0;
-            console.log("Declination: " + declination / Math.PI * 180);
             let angleSplit: number = SPLIT_ANGLE[data.level] - declination;
             let cloneTranslation: mat4 = new mat4().setIdentity().translate(new vec3([0, data.segmentOffset, 0]));
             let cloneRotX: mat4 = new mat4().setIdentity().rotate(angleSplit, new vec3([1, 0, 0]));
@@ -607,12 +605,11 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
                 let cloneData: BranchData = JSON.parse(JSON.stringify(data));
                 generateBranch(cloneData, i + 1, clone);
             }
-            break;
-        } else {
-            //No splitting, keep generating a singular branch.
-            data.splitError -= effectiveSplit - SEG_SPLIT[data.level];
-            current = seg;
         }
+        currentTransform = localTransform;
+        //No splitting, keep generating a singular branch.
+        data.splitError -= effectiveSplit - SEG_SPLIT[data.level];
+        current = seg;
     }
     return start;
 }
