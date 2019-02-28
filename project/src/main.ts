@@ -232,60 +232,69 @@ interface BranchVertexData {
 
 interface BranchMeshPart {
     vertices: BranchVertexData[];
-    indices: Uint16Array;
+    indices: number[];
 }
 
-let branchSideIndices = [0, 1, 2, 1, 2, 3];
 let BRANCH_RESOLUTION = 8; // Number of vertices on each side of a branch
-let BRANCH_INDEX_AMOUNT = branchSideIndices.length * BRANCH_RESOLUTION;
-let BRANCH_VERTEX_AMOUNT = BRANCH_RESOLUTION * 2; // Two ends on each branch
+let BRANCH_INDEX_AMOUNT = 6 * BRANCH_RESOLUTION;
 
-function generateBranchData(startSegment: Segment, endSegment: Segment): BranchMeshPart {
-    let meshPart = {
-        vertices: new Array<BranchVertexData>(BRANCH_VERTEX_AMOUNT),
-        indices: new Uint16Array(BRANCH_INDEX_AMOUNT)
-    };
-
-    let startSegmentCenterPosition = startSegment.transform.multiplyVec3(new vec3([0, 0, 0]))
-    let endCenterPosition = endSegment.transform.multiplyVec3(new vec3([0, 0, 0]))
+function generateBranchVertices(seg: Segment): BranchVertexData[] {
+    let vertices = new Array<BranchVertexData>(BRANCH_RESOLUTION);
+    let centerPosition = seg.transform.multiplyVec3(new vec3([0, 0, 0]));
 
     for (let i = 0; i < BRANCH_RESOLUTION; i++) {
         let angle = i / BRANCH_RESOLUTION * (2 * Math.PI);
         let x = Math.cos(angle);
         let z = Math.sin(angle);
-        let startEdgePos = startSegment.transform.multiplyVec3(
-            new vec3([x, 0, z]).scale(startSegment.radius)
-        );
-        let endEdgePos = endSegment.transform.multiplyVec3(
-            new vec3([x, 0, z]).scale(endSegment.radius)
+        let edgePos = seg.transform.multiplyVec3(
+            new vec3([x, 0, z]).scale(seg.radius)
         );
 
-        meshPart.vertices[i * 2] = {
-            position: startEdgePos,
-            normal: new vec3(startEdgePos.xyz).subtract(startSegmentCenterPosition)
+        vertices[i] = {
+            position: edgePos,
+            normal: new vec3(edgePos.xyz).subtract(centerPosition)
         };
-
-        meshPart.vertices[i * 2 + 1] = {
-            position: endEdgePos,
-            normal: new vec3(endEdgePos.xyz).subtract(endCenterPosition)
-        };
-
-        meshPart.indices.set(
-            branchSideIndices.map(b => (b + i * 2) % 16),
-            i * branchSideIndices.length
-        );
     }
 
-    return meshPart;
+    return vertices;
 }
 
-function generateAllMeshParts(seg: Segment): BranchMeshPart[] {
-    let parts = [];
-    for(let child of seg.children){
-        parts.push(generateBranchData(seg, child));
-        parts = parts.concat(generateAllMeshParts(child));
+function generateAllMeshParts(seg: Segment, startIndex: number): BranchMeshPart {
+    let vertices = generateBranchVertices(seg);
+    let indices = new Array<number>();
+
+    let childIndex = startIndex + vertices.length;
+    for (let child of seg.children) {
+        vertices = vertices.concat(generateBranchVertices(child));
+        for (let i = 0; i < BRANCH_RESOLUTION; i++) {
+            let si = startIndex + i;
+            let ci = childIndex + i;
+
+            if (i == BRANCH_RESOLUTION - 1) {
+                indices = indices.concat(
+                    [si, ci, startIndex,
+                     ci, startIndex, childIndex]
+                );
+            } else {
+                indices = indices.concat(
+                    [si, ci, si + 1,
+                     ci, si + 1, ci + 1];
+            }
+        }
+        childIndex += BRANCH_RESOLUTION;
     }
-    return parts;
+
+    for (let child of seg.children) {
+        let childPart = generateAllMeshParts(child, childIndex);
+        vertices = vertices.concat(childPart.vertices);
+        indices = indices.concat(childPart.indices);
+        childIndex += childPart.vertices.length;
+    }
+
+    return {
+        vertices: vertices,
+        indices: indices
+    };
 }
 
 interface ShaderProgram {
@@ -327,29 +336,19 @@ function createMesh(vertexData: Float32Array, indices: Uint16Array, shaderId: We
 }
 
 function createTreeMesh(seg: Segment): Mesh {
-    let meshParts = generateAllMeshParts(seg);
+    let meshParts = generateAllMeshParts(seg, 0);
+    console.log(meshParts.vertices);
+    console.log(meshParts.indices);
 
-    let branchAmount = meshParts.length;
-    let VERTEX_ARRAY_SIZE = BRANCH_VERTEX_AMOUNT * branchAmount * DATA_PER_VERTEX;
-    let numIndices = BRANCH_INDEX_AMOUNT * branchAmount;
+    let indices = new Uint16Array(meshParts.indices);
 
+    let VERTEX_ARRAY_SIZE = meshParts.vertices.length * DATA_PER_VERTEX;
     let vertexData = new Float32Array(VERTEX_ARRAY_SIZE);
-    let indices = new Uint16Array(numIndices);
 
-    // Indices need to be offset based on their position in the final array
-    for (let i = 0; i < meshParts.length; i++) {
-        let indexIndex = i * BRANCH_INDEX_AMOUNT;
-        let vertexIndex = i * BRANCH_VERTEX_AMOUNT;
-        let part = meshParts[i];
-        indices.set(
-            part.indices.map(ind => ind + vertexIndex), indexIndex
-        );
-
-        for (let j = 0; j < part.vertices.length; j++) {
-            let vertex = part.vertices[j];
-            let thisData = vertex.position.xyz.concat(vertex.normal.xyz);
-            vertexData.set(thisData, (vertexIndex + j) * DATA_PER_VERTEX);
-        }
+    for (let i = 0; i < meshParts.vertices.length; i++) {
+        let vertex = meshParts.vertices[i];
+        let thisData = vertex.position.xyz.concat(vertex.normal.xyz);
+        vertexData.set(thisData, i * DATA_PER_VERTEX);
     }
 
     return createMesh(vertexData, indices, treeShader.id);
