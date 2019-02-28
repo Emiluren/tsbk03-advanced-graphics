@@ -22,17 +22,17 @@ enum Shapes {
 let CURVE_RES = [4, 2, 2];
 
 // Controls magnitude of x-axis curvature in branches
-let CURVE = [Math.PI * 0.3, Math.PI / 2, Math.PI / 14];
+let CURVE = [Math.PI / 2, Math.PI / 2, Math.PI / 14];
 
 // Controls magnitude of y-axis curvature in branches
 let CURVE_V = [Math.PI * 0.3, Math.PI / 1.5, Math.PI / 3];
 
 // Controls amount of clones created each segment.
-let SEG_SPLIT = [0, 0, 0];
+let SEG_SPLIT = [0.9, 0, 0];
 // Controls how much new clones will rotate away from their parents.
 let SPLIT_ANGLE = [Math.PI * 0.3, Math.PI / 4, Math.PI / 43];
 // Controls lenght of branches
-let LENGTH = [2, 0.4, 0];
+let LENGTH = [1, 0.4, 0];
 
 // Defines shapeRatio mode, see function.
 let SHAPE: Shapes = Shapes.Cylindrical;
@@ -540,6 +540,9 @@ function generateChildBranches(start: Segment, data: BranchData, startOffset: nu
 // startSegment: If this branch has been split, this should state which number on the branch the next segment will be
 // start: The root segment from which this branch springs.
 function generateBranch(data: BranchData, startSegment: number, start: Segment): Segment{
+    console.log("Branch length: " + data.branchLength);
+    console.log("Segment offset: " + data.segmentOffset);
+    console.log("Theoretical height: " + data.segmentOffset * CURVE_RES[data.level]);
     let effectiveSplit: number = 0.0;
 
     let current: Segment = start;
@@ -553,10 +556,10 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
 
     //Rotate along x axis
     localRotX = new mat4().setIdentity().rotate(data.angle, new vec3([1, 0, 0]));
-    localRot = localRotY.multiply(localRotX)
-    localTransform = localTranslation.multiply(localRot);
+    localRot = localRotY.multiply(localRotX);
 
     for(let i = startSegment; i <= CURVE_RES[data.level]; ++i){
+        localTransform = localTranslation.copy().multiply(localRot);
         console.log("Generating new segment!");
         let seg: Segment = {
             radius: 0,
@@ -570,6 +573,7 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
         //Add parent transform to the branch' local one.
         localTransform = currentTransform.copy().multiply(localTransform);
         seg.position = localTransform.multiplyVec3(seg.position);
+        console.log("Segment placed at: " + seg.position.xyz)
         seg.transform = localTransform;
         current.children.push(seg);
 
