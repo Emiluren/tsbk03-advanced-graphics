@@ -430,8 +430,6 @@ function createBranchData(parent: BranchData, offset: number): BranchData {
         angle: 0,
         angleBack: 0
     };
-
-
     if(parent != null){
         data.level = parent.level + 1;
     }
@@ -560,7 +558,7 @@ function generateChildBranches(start: Segment, data: BranchData, startOffset: nu
 // start: The root segment from which this branch springs.
 function generateBranch(data: BranchData, startSegment: number, start: Segment): Segment{
     //console.log("Generating new level" + " branch originating in " + start.position.xyz)
-    let effectiveSplit: number = 0;
+    let effectiveSplit: number = 0.0;
 
     let current: Segment = start;
     let currentTransform: mat4 = start.transform;
@@ -599,12 +597,11 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
             position: new vec3([0, 0, 0]),
             children: [],
             transform: new mat4()
-        }
+        };
 
         seg.radius = data.branchRadius * (1 - data.unitTaper * i/CURVE_RES[data.level]);
 
         //Select the current transform for creating the S-shape branch.
-        //TODO: Should this not be AND?
         if(CURVE_BACK[data.level] == 0 || i < CURVE_RES[data.level] / 2){
             currentTransform = localTransform.multiply(currentTransform);
         } else {
@@ -627,8 +624,9 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
             let cloneRotX: mat4 = new mat4().setIdentity().rotate(angleSplit, new vec3([1, 0, 0]));
 
             for(let j: number = 0; j <= effectiveSplit + 1; ++j){
-                let cloneAngle = (Math.PI / 9 + 0.75 * (Math.PI / 6 + Math.abs(declination - Math.PI / 2)) * Math.random()**2) * (Math.round(Math.random()) ? -1 : 1);
-                let cloneRotY: mat4 = new mat4().setIdentity().rotate(Math.PI * cloneAngle / 180, new vec3([0, 1, 0]));
+                console.log("Generating clone!");
+                let cloneAngle = (Math.PI /  + 0.75 * (Math.PI / 6 + Math.abs(declination - Math.PI / 2)) * Math.random()**2) * (Math.round(Math.random()) ? -1 : 1);
+                let cloneRotY: mat4 = new mat4().setIdentity().rotate(cloneAngle, new vec3([0, 1, 0]));
                 let clone: Segment = {
                     radius: 0,
                     position : new vec3([0, 0, 0]),
