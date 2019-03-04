@@ -3,6 +3,7 @@ precision mediump float;
 
 in vec3 v_normal;
 in vec3 v_position;
+uniform vec3 lightdir;
 out vec4 fragColor;
 
 vec3 mod289(vec3 x) {
@@ -91,7 +92,6 @@ float snoise(vec3 v) {
 }
 
 void main() {
-    vec3 lightdir = normalize(vec3(1, 1, 1));
     float diffuse_factor = max(0.2, dot(normalize(v_normal), lightdir));
     float noise_factor = 0.9 + 0.1 * snoise(v_position * 10.0);
     fragColor = vec4(vec3(1.0, 1.0, 0.4) * diffuse_factor * noise_factor, 1);

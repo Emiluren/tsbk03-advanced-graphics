@@ -81,6 +81,11 @@ let rightPressed = false;
 let upPressed = false;
 let downPressed = false;
 
+let lightLeftPressed = false;
+let lightRightPressed = false;
+let lightUpPressed = false;
+let lightDownPressed = false;
+
 function handleKeyEvent(keyCode: string, newState: boolean) {
     switch (keyCode) {
         case "KeyA":
@@ -98,6 +103,19 @@ function handleKeyEvent(keyCode: string, newState: boolean) {
         case "KeyS":
         case "ArrowDown":
             downPressed = newState;
+            break;
+
+        case "KeyJ":
+            lightLeftPressed = newState;
+            break;
+        case "KeyL":
+            lightRightPressed = newState;
+            break;
+        case "KeyI":
+            lightUpPressed = newState;
+            break;
+        case "KeyK":
+            lightDownPressed = newState;
             break;
     }
 }
@@ -198,6 +216,9 @@ function drawMesh(mesh: Mesh, shader: ShaderProgram, worldMatrix: mat4, mvpMatri
     gl.bindVertexArray(null);
 }
 
+let lightHeight = Math.PI / 4;
+let lightAngle = Math.PI / 4;
+
 let lastRenderTime = 0;
 function render(time: number): void {
     let dt = Math.min((time - lastRenderTime) / 1000, 1 / 30);
@@ -226,16 +247,45 @@ function render(time: number): void {
     }
     y += vy * dt;
 
-    let camPosX = Math.sin(cameraPositionAngle) * cameraPositionRadius;
-    let camPosZ = Math.cos(cameraPositionAngle) * cameraPositionRadius;
+    let lightHeightVelocity = 0;
+    if (lightDownPressed) {
+        lightHeightVelocity -= 2;
+    }
+    if (lightUpPressed) {
+        lightHeightVelocity += 2;
+    }
+    lightHeight += lightHeightVelocity * dt;
+    lightHeight = Math.max(Math.min(lightHeight, Math.PI / 2), 0);
+
+    let lightAngleVelocity = 0;
+    if (lightLeftPressed) {
+        lightAngleVelocity -= 2;
+    }
+    if (lightRightPressed) {
+        lightAngleVelocity += 2;
+    }
+    lightAngle += lightAngleVelocity * dt;
+
+    let lightdir =
+        new mat4().setIdentity().rotate(
+            lightHeight, new vec3([-1, 0, 0])
+        ).rotate(
+            lightAngle, new vec3([0, 1, 0])
+        ).multiplyVec3(new vec3([0, 0, 1]));
 
     let viewMatrix = mat4.lookAt(cameraPosition(), cameraTarget, new vec3([0, 1, 0]));
     proj.multiply(viewMatrix);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    gl.useProgram(treeShader.id);
+    gl.uniform3fv(treeShader.uniformLocations["lightdir"], lightdir.xyz);
     drawMesh(treeMesh, treeShader, mat4.identity, proj);
+
+    gl.useProgram(sandShader.id);
+    gl.uniform3fv(sandShader.uniformLocations["lightdir"], lightdir.xyz);
     drawMesh(sandMesh, sandShader, mat4.identity, proj);
+
     drawMesh(waterMesh, waterShader, mat4.identity, proj);
 
     if (raycasts.length > 0) {
@@ -609,7 +659,7 @@ function onLoad(): void {
     treeShader = createProgram([
         { shaderType: gl.VERTEX_SHADER, contents: genericVertexShader },
         { shaderType: gl.FRAGMENT_SHADER, contents: treeFragmentShader }
-    ], ["mvp", "world"]);
+    ], ["mvp", "world", "lightdir"]);
 
     rayShader = createProgram([
         { shaderType: gl.VERTEX_SHADER, contents: rayVertexShader },
@@ -619,7 +669,7 @@ function onLoad(): void {
     sandShader = createProgram([
         { shaderType: gl.VERTEX_SHADER, contents: genericVertexShader },
         { shaderType: gl.FRAGMENT_SHADER, contents: sandFragmentShader }
-    ], ["mvp", "world"]);
+    ], ["mvp", "world", "lightdir"]);
 
     waterShader = createProgram([
         { shaderType: gl.VERTEX_SHADER, contents: genericVertexShader },
