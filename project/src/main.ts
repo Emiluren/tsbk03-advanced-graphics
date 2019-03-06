@@ -539,20 +539,20 @@ function createWaterMesh(): Mesh {
 function createLeafMesh() {
     let shaderId = leafShader.id;
     let vertexData = new Float32Array([
-        0, 0, 0,
-        0, 0, 1,
+        0, 0.5, 0,
+        0, 1, 0,
         0, 0,
 
+        0, 0.5, 1,
         0, 1, 0,
-        0, 0, 1,
         0, 1,
 
-        1, 0, 0,
-        0, 0, 1,
+        1, 0.5, 0,
+        0, 1, 0,
         1, 0,
 
-        1, 1, 0,
-        0, 0, 1,
+        1, 0.5, 1,
+        0, 1, 0,
         1, 1,
     ]);
     let indices = new Uint16Array([0, 1, 2, 1, 3, 2]);
