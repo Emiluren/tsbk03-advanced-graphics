@@ -35,7 +35,7 @@ let CURVE_RES = [6, 0, 0];
 // Controls magnitude of x-axis curvature in branches
 let CURVE = [Math.PI / 3, Math.PI / 0.05, Math.PI / 14];
 // Controls magnitude of y-axis curvature in branches
-let CURVE_V = [Math.PI / 3, Math.PI / 1.5, Math.PI / 3];
+let CURVE_V = [Math.PI / 2, Math.PI / 1.5, Math.PI / 3];
 
 // Controls amount of clones created each segment.
 let SEG_SPLIT = [0.35, 0.4, 9999999];
@@ -89,6 +89,8 @@ let leftPressed = false;
 let rightPressed = false;
 let upPressed = false;
 let downPressed = false;
+let zoomInPressed = false;
+let zoomOutPressed = false;
 
 let lightLeftPressed = false;
 let lightRightPressed = false;
@@ -134,6 +136,12 @@ function handleKeyEvent(keyCode: string, newState: boolean): boolean {
         case "KeyK":
             lightDownPressed = newState;
             return true;
+            break;
+        case "KeyQ":
+            zoomInPressed = newState;
+            break;
+        case "KeyE":
+            zoomOutPressed = newState;
             break;
     }
     return false;
@@ -188,15 +196,16 @@ interface Leaf {
 
 let cameraPositionAngle = 0;
 let cameraPositionRadius = 10;
-let y = 3;
+let cameraDeclination = 0;
 
 const CAMERA_FOV = 45;
 let cameraTarget = new vec3([0, 2, 0]);
 
 function cameraPosition(): vec3 {
-    let camPosX = Math.sin(cameraPositionAngle) * cameraPositionRadius;
-    let camPosZ = Math.cos(cameraPositionAngle) * cameraPositionRadius;
-    return new vec3([camPosX, y, camPosZ]);
+    let camPosX = Math.sin(cameraPositionAngle) * cameraPositionRadius * Math.sin(cameraDeclination);
+    let camPosZ = Math.cos(cameraPositionAngle) * cameraPositionRadius * Math.sin(cameraDeclination);
+    let camPosY = Math.cos(cameraDeclination) * cameraPositionRadius;
+    return new vec3([camPosX, camPosY, camPosZ]);
 }
 
 // Debug drawing for raycasts
@@ -266,12 +275,19 @@ function render(time: number): void {
 
     let vy = 0;
     if (upPressed) {
-        vy += 10;
+        vy += 1.5;
     }
     if (downPressed) {
-        vy -= 10;
+        vy -= 1.5;
     }
-    y += vy * dt;
+    cameraDeclination += vy * dt;
+
+    if(cameraDeclination <= 0){
+        cameraDeclination = 0.00001;
+    } else if(cameraDeclination >= Math.PI){
+        cameraDeclination = Math.PI - 0.00001;
+    }
+
 
     let lightHeightVelocity = 0;
     if (lightDownPressed) {
@@ -298,6 +314,20 @@ function render(time: number): void {
         ).rotate(
             lightAngle, new vec3([0, 1, 0])
         ).multiplyVec3(new vec3([0, 0, 1]));
+
+    let ZOOM_SPEED = 3;
+    if(zoomInPressed){
+        cameraPositionRadius -= ZOOM_SPEED * dt;
+        if(cameraPositionRadius < 0.5){
+            cameraPositionRadius = 0.5;
+        }
+    }
+    if(zoomOutPressed){
+        cameraPositionRadius += ZOOM_SPEED * dt;
+        if(cameraPositionRadius > 20){
+            cameraPositionRadius = 20;
+        }
+    }
 
     let viewMatrix = mat4.lookAt(cameraPosition(), cameraTarget, new vec3([0, 1, 0]));
     proj.multiply(viewMatrix);
@@ -336,7 +366,6 @@ interface BranchMeshPart {
 }
 
 let BRANCH_RESOLUTION = 8; // Number of vertices on each side of a branch
-let BRANCH_INDEX_AMOUNT = 6 * BRANCH_RESOLUTION;
 
 function generateBranchVertices(seg: Segment): BranchVertexData[] {
     let vertices = new Array<BranchVertexData>(BRANCH_RESOLUTION);
