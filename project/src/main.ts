@@ -38,7 +38,7 @@ let CURVE = [Math.PI / 3, Math.PI / 0.05, Math.PI / 14];
 let CURVE_V = [Math.PI / 2, Math.PI / 1.5, Math.PI / 3];
 
 // Controls amount of clones created each segment.
-let SEG_SPLIT = [0.35, 0.4, 9999999];
+let SEG_SPLIT = [0.4, 0.4, 9999999];
 // Controls how much new clones will rotate away from their parents.
 let SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
 
@@ -334,6 +334,8 @@ function render(time: number): void {
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    drawMesh(waterMesh, waterShader, mat4.identity, proj);
+
     gl.useProgram(treeShader.id);
     gl.uniform3fv(treeShader.uniformLocations["lightdir"], lightdir.xyz);
     drawMesh(treeMesh, treeShader, mat4.identity, proj);
@@ -345,8 +347,6 @@ function render(time: number): void {
     gl.useProgram(leafShader.id);
     gl.uniform3fv(leafShader.uniformLocations["lightdir"], lightdir.xyz);
     drawMesh(leafMesh, leafShader, mat4.identity, proj);
-
-    drawMesh(waterMesh, waterShader, mat4.identity, proj);
 
     if (raycasts.length > 0) {
         drawRays(proj);
@@ -581,22 +581,22 @@ function createLeafMesh(leaves: Leaf[]) {
 
     let vertexData = new Float32Array(leaves.length * DATA_PER_LEAF_VERTEX * 4);
     for (let i = 0; i < leaves.length; i++) {
-        let pos = leaves[i].transform.multiplyVec3(ZERO_VECTOR);
+        let trans = leaves[i].transform;
         vertexData.set(
             [
-                ...(new vec3([0, 0, 0]).add(pos).xyz),
+                ...(trans.multiplyVec3(new vec3([0, 0, 0])).xyz),
                 0, 1, 0,
                 0, 0,
 
-                ...(new vec3([0, 0, 0.1]).add(pos).xyz),
+                ...(trans.multiplyVec3(new vec3([0, 0, 0.2])).xyz),
                 0, 1, 0,
                 0, 1,
 
-                ...(new vec3([0.1, 0, 0]).add(pos).xyz),
+                ...(trans.multiplyVec3(new vec3([0.2, 0, 0])).xyz),
                 0, 1, 0,
                 1, 0,
 
-                ...(new vec3([0.1, 0, 0.1]).add(pos).xyz),
+                ...(trans.multiplyVec3(new vec3([0.2, 0, 0.1])).xyz),
                 0, 1, 0,
                 1, 1,
             ],
@@ -788,6 +788,9 @@ function onLoad(): void {
 
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     gl.clearColor(0.7, 0.7, 1.0, 1.0);
     treeShader = createProgram([

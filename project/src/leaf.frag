@@ -194,7 +194,7 @@ vec2 LeafThickness(vec2 p) {
 }
 
 // [p].xy [n]PlaneNormal [l]VectorToTight [v]viewVector
-vec3 ComputeLighting(vec2 p, vec3 n, vec3 l) {
+vec4 ComputeLighting(vec2 p, vec3 n, vec3 l) {
     p = LeafThickness(p); // leaf thickness
     vec3 d = 10. * vec3(1); // diffuse
     d *= saturate(-dot(l, n)); // clamp
@@ -205,12 +205,12 @@ vec3 ComputeLighting(vec2 p, vec3 n, vec3 l) {
         r = mix(20., 30., p.x*saturate(-p.y / .01));
     }
     vec3 Transmittance = vec3(.3, .2, .8)*r/PI;
-    Transmittance = exp(-Transmittance * p.x);	
-    return vec3(d * Transmittance);
+    Transmittance = exp(-Transmittance * p.x);
+    return vec4(d * Transmittance, smoothstep(0., .2, p.x));
 }
 
-vec3 ComputeLighting(vec2 p, vec3 n) { return ComputeLighting(p, n, vec3(0, 0, -1)); }
-vec3 ComputeLighting(vec2 p) { return ComputeLighting(p, vec3(0, 0, 1)); }
+vec4 ComputeLighting(vec2 p, vec3 n) { return ComputeLighting(p, n, vec3(0, 0, -1)); }
+vec4 ComputeLighting(vec2 p) { return ComputeLighting(p, vec3(0, 0, 1)); }
 
 #define ddabcb(a, b, c) dot(a, b) / dot(c, b)
 
@@ -220,7 +220,7 @@ void main() {
     u = vec2(u.y, u.x); //quater rotation
     u -= .5; // center
     u *= vec2(.65, .92); // scale
-    vec3 Leaf = ComputeLighting(u * 8.);
-    Leaf = sqrt(Leaf * .1);
-    fragColor = vec4(Leaf, 1.);
+    vec4 LeafData = ComputeLighting(u * 8.);
+    vec3 Leaf = sqrt(LeafData.xyz * .1);
+    fragColor = vec4(Leaf, LeafData.w);
 }
