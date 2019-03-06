@@ -38,9 +38,9 @@ let CURVE = [Math.PI / 3, Math.PI / 0.05, Math.PI / 14];
 let CURVE_V = [Math.PI / 3, Math.PI / 1.5, Math.PI / 3];
 
 // Controls amount of clones created each segment.
-let SEG_SPLIT = [0.5, 0.4, 9999999];
+let SEG_SPLIT = [0.35, 0.4, 9999999];
 // Controls how much new clones will rotate away from their parents.
-let SPLIT_ANGLE = [Math.PI / 2, Math.PI / 2, Math.PI / 43];
+let SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
 
 // Controls lenght of branches
 let LENGTH = [4, 0.5, 1];
@@ -71,7 +71,7 @@ let CHILD_ANGLE_X = [Math.PI / 0.1, Math.PI / 0.1, Math.PI / 5];
 let CHILD_ANGLE_Y = [Math.PI / 13, Math.PI / 14, 0];
 
 //Controls number of leaves per segment-pair. Grows exponentially with SEG_SPLIT, use with caution.
-let LEAVES = 50;
+let LEAVES = 10;
 let LEAF_ANGLE = Math.PI / 0.3; //Leaf rotation around y-axis
 
 let ZERO_VECTOR = new vec3([0, 0, 0]);
@@ -537,26 +537,52 @@ function createWaterMesh(): Mesh {
     return createMesh(vertexData, indices, waterShader.id);
 }
 
-function createLeafMesh() {
+function findAllLeaves(seg: Segment): Leaf[] {
+    let leaves = seg.leaves;
+    for (let child of seg.children) {
+        leaves.push(...findAllLeaves(child));
+    }
+    return leaves;
+}
+
+function createLeafMesh(leaves: Leaf[]) {
     let shaderId = leafShader.id;
-    let vertexData = new Float32Array([
-        0, 0.5, 0,
-        0, 1, 0,
-        0, 0,
 
-        0, 0.5, 1,
-        0, 1, 0,
-        0, 1,
+    let DATA_PER_LEAF_VERTEX = 8;
 
-        1, 0.5, 0,
-        0, 1, 0,
-        1, 0,
+    let vertexData = new Float32Array(leaves.length * DATA_PER_LEAF_VERTEX * 4);
+    for (let i = 0; i < leaves.length; i++) {
+        let pos = leaves[i].transform.multiplyVec3(ZERO_VECTOR);
+        vertexData.set(
+            [
+                ...(new vec3([0, 0, 0]).add(pos).xyz),
+                0, 1, 0,
+                0, 0,
 
-        1, 0.5, 1,
-        0, 1, 0,
-        1, 1,
-    ]);
-    let indices = new Uint16Array([0, 1, 2, 1, 3, 2]);
+                ...(new vec3([0, 0, 0.1]).add(pos).xyz),
+                0, 1, 0,
+                0, 1,
+
+                ...(new vec3([0.1, 0, 0]).add(pos).xyz),
+                0, 1, 0,
+                1, 0,
+
+                ...(new vec3([0.1, 0, 0.1]).add(pos).xyz),
+                0, 1, 0,
+                1, 1,
+            ],
+            i * DATA_PER_LEAF_VERTEX * 4
+        );
+    }
+
+    let indices = new Uint16Array(leaves.length * 6);
+    for (let x of Array(leaves.length).keys()) {
+        let i = x * 4;
+        indices.set(
+            [i, i + 1, i + 2, i + 1, i + 3, i + 2],
+            x * 6
+        );
+    }
 
     let vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
@@ -576,7 +602,7 @@ function createLeafMesh() {
     let size = 3, normalize = false, stride = (DATA_PER_VERTEX + 2) * 4;
     gl.vertexAttribPointer(posLocation, size, gl.FLOAT, normalize, stride, 0);
     gl.vertexAttribPointer(normLocation, size, gl.FLOAT, normalize, stride, 3*4);
-    gl.vertexAttribPointer(texCoordsLocation, 2, gl.FLOAT, normalize, stride, 6*4;
+    gl.vertexAttribPointer(texCoordsLocation, 2, gl.FLOAT, normalize, stride, 6*4);
 
     // Buffer indices
     let indexBuffer = gl.createBuffer();
@@ -766,7 +792,8 @@ function onLoad(): void {
     sandMesh = createSandMesh();
     waterMesh = createWaterMesh();
 
-    leafMesh = createLeafMesh();
+    let leaves = findAllLeaves(tree);
+    leafMesh = createLeafMesh(leaves);
 
     canvas.addEventListener('click', (event) => {
         let camPos = cameraPosition()
@@ -789,6 +816,8 @@ function onLoad(): void {
 
         if (cutTree(tree, camPos, rayWorld)) {
             treeMesh = createTreeMesh(tree);
+            let leaves = findAllLeaves(tree);
+            leafMesh = createLeafMesh(leaves);
         }
     }, false);
 
