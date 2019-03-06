@@ -32,7 +32,7 @@ let CURVE_RES = [6, 0, 0];
 // Controls magnitude of x-axis curvature in branches
 let CURVE = [Math.PI / 0.4, Math.PI / 0.05, Math.PI / 14];
 // Controls magnitude of y-axis curvature in branches
-let CURVE_V = [Math.PI / 2, Math.PI / 1.5, Math.PI / 3];
+let CURVE_V = [Math.PI / 0.4, Math.PI / 1.5, Math.PI / 3];
 
 // Controls amount of clones created each segment.
 let SEG_SPLIT = [0.3, 0.4, 9999999];
@@ -56,6 +56,7 @@ let RATIO_POWER = 1;
 // Controls amount of tapering of branch thickness [0, 3].
 let TAPER = [1, 1, 0.1];
 
+//Sub-Branch variables, these are not implemented, set BRANCHES to a non-zero value at your own risk!//
 //Controls number of child branches for each leves, values above 10 give very weird results.
 let BRANCHES = [0, 0, 0];
 //The distance any branch will stretch before any branches begin shootinf off of it.
@@ -66,7 +67,8 @@ let CHILD_ANGLE_X = [Math.PI / 0.1, Math.PI / 0.1, Math.PI / 5];
 //This value decides how much more each new branch rotates than the last.
 let CHILD_ANGLE_Y = [Math.PI / 13, Math.PI / 14, 0];
 
-let LEAVES = 100;
+//Controls number of leaves per segment-pair. Grows exponentially with SEG_SPLIT, use with caution.
+let LEAVES = 50;
 let LEAF_ANGLE = Math.PI / 0.3; //Leaf rotation around y-axis
 
 let ZERO_VECTOR = new vec3([0, 0, 0]);
@@ -870,11 +872,7 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
     localRot = localRotY.multiply(localRotX);
 
     for(let i = startSegment; i <= CURVE_RES[data.level]; ++i){
-<<<<<<< HEAD
-        localTransform = localTranslation.copy().multiply(localRot);
-=======
         localTransform = localTranslation.copy().multiply(localRot.toMat4());
->>>>>>> generation
         let seg: Segment = {
             radius: 0,
             children: [],
@@ -886,10 +884,6 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
 
         //Add parent transform to the branch' local one.
         localTransform = currentTransform.copy().multiply(localTransform);
-<<<<<<< HEAD
-        seg.position = localTransform.multiplyVec3(seg.position);
-=======
->>>>>>> generation
         seg.transform = localTransform;
         current.children.push(seg);
 
