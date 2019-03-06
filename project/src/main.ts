@@ -33,14 +33,14 @@ enum Shapes {
 let CURVE_RES = [6, 0, 0];
 
 // Controls magnitude of x-axis curvature in branches
-let CURVE = [Math.PI / 0.4, Math.PI / 0.05, Math.PI / 14];
+let CURVE = [Math.PI / 3, Math.PI / 0.05, Math.PI / 14];
 // Controls magnitude of y-axis curvature in branches
-let CURVE_V = [Math.PI / 0.4, Math.PI / 1.5, Math.PI / 3];
+let CURVE_V = [Math.PI / 3, Math.PI / 1.5, Math.PI / 3];
 
 // Controls amount of clones created each segment.
-let SEG_SPLIT = [0.3, 0.4, 9999999];
+let SEG_SPLIT = [0.5, 0.4, 9999999];
 // Controls how much new clones will rotate away from their parents.
-let SPLIT_ANGLE = [Math.PI / 0.45, Math.PI / 2, Math.PI / 43];
+let SPLIT_ANGLE = [Math.PI / 2, Math.PI / 2, Math.PI / 43];
 
 // Controls lenght of branches
 let LENGTH = [4, 0.5, 1];
@@ -177,6 +177,7 @@ interface BranchData {
 interface Segment {
     radius: number
     children: Segment[]
+    leaves: Leaf[]
     transform: mat4
     rot: quat
 }
@@ -838,6 +839,7 @@ function generateLeaves(root: Segment, totalLevels: number, level: number, leave
             let leafTransform: mat4 = root.transform.copy().multiply(leafTranslation).multiply(leafRotation);
             newLeaf.transform = leafTransform;
             leaves.push(newLeaf);
+            childSegment.leaves.push(newLeaf);
             totalLeaves++;
         }
         generateLeaves(childSegment, totalLevels, level + 1, leaves);
@@ -940,6 +942,7 @@ function generateChildBranches(start: Segment, data: BranchData, startOffset: nu
                 let offsetSegment: Segment = {
                     radius: 0.6 * startSeg.radius,
                     children: [],
+                    leaves: [],
                     transform: new mat4(),
                     rot: quat.mix(new quat().setIdentity(), endSeg.rot, 0.5)
                 };
@@ -953,6 +956,7 @@ function generateChildBranches(start: Segment, data: BranchData, startOffset: nu
                 let childRoot: Segment = {
                     radius: 0,
                     children: [],
+                    leaves: [],
                     transform: new mat4(),
                     rot: new quat().setIdentity()
                 };
@@ -1001,6 +1005,7 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
         let seg: Segment = {
             radius: 0,
             children: [],
+            leaves:[],
             transform: new mat4(),
             rot: localRot
         };
@@ -1033,6 +1038,7 @@ function generateBranch(data: BranchData, startSegment: number, start: Segment):
                 let clone: Segment = {
                     radius: 0,
                     children: [],
+                    leaves: [],
                     transform: new mat4(),
                     rot: cloneRot
                 };
@@ -1060,6 +1066,7 @@ function generateTree(): Segment {
     let root: Segment = {
         radius: LENGTH[0] * RATIO * SCALE,
         children: [],
+        leaves: [],
         transform: new mat4().setIdentity(),
         rot: new quat().setIdentity()
     };
