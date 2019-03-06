@@ -3,6 +3,7 @@ precision mediump float;
 
 in vec3 v_normal;
 in vec3 v_position;
+uniform vec3 lightdir;
 out vec4 fragColor;
 
 // rot(a), hash31(p), noise3(p) come from https://www.shadertoy.com/view/lsVyRy
@@ -120,7 +121,6 @@ vec2 worley(vec3 P, out vec3 firstVec, out vec3 secondVec) {
 }
     
 void main() {
-    vec3 lightdir = normalize(vec3(1, 1, 1));
     float diffuse_factor = max(0.2, dot(normalize(v_normal), lightdir));
 
     vec3 firstVec, secondVec;

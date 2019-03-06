@@ -4,6 +4,9 @@ import treeFragmentShader from './tree.frag'
 import sandFragmentShader from './sand.frag'
 import waterFragmentShader from './water.frag'
 
+import leafVertexShader from './leaf.vert'
+import leafFragmentShader from './leaf.frag'
+
 import rayVertexShader from './ray.vert'
 import rayFragmentShader from './ray.frag'
 
@@ -78,44 +81,74 @@ let RIGHT_VECTOR: vec3 = new vec3([1, 0, 0]);
 var canvas : HTMLCanvasElement, gl;
 
 var tree;
-var treeShader, rayShader, sandShader, waterShader;
+var treeShader, rayShader, sandShader, waterShader, leafShader;
 var randomTexture;
-var treeMesh, sandMesh, waterMesh;
+var treeMesh, sandMesh, waterMesh, leafMesh;
 
 let leftPressed = false;
 let rightPressed = false;
 let upPressed = false;
 let downPressed = false;
 
-function handleKeyEvent(keyCode: string, newState: boolean) {
+let lightLeftPressed = false;
+let lightRightPressed = false;
+let lightUpPressed = false;
+let lightDownPressed = false;
+
+// Returns true if the event was handled and false if not
+function handleKeyEvent(keyCode: string, newState: boolean): boolean {
     switch (keyCode) {
         case "KeyA":
         case "ArrowLeft":
             leftPressed = newState;
+            return true;
             break;
         case "KeyD":
         case "ArrowRight":
             rightPressed = newState;
+            return true;
             break;
         case "KeyW":
         case "ArrowUp":
             upPressed = newState;
+            return true;
             break;
         case "KeyS":
         case "ArrowDown":
             downPressed = newState;
+            return true;
+            break;
+
+        case "KeyJ":
+            lightLeftPressed = newState;
+            return true;
+            break;
+        case "KeyL":
+            lightRightPressed = newState;
+            return true;
+            break;
+        case "KeyI":
+            lightUpPressed = newState;
+            return true;
+            break;
+        case "KeyK":
+            lightDownPressed = newState;
+            return true;
             break;
     }
+    return false;
 }
 
 window.addEventListener('keydown', (event) => {
-    handleKeyEvent(event.code, true);
-    event.preventDefault();
+    if (handleKeyEvent(event.code, true)) {
+        event.preventDefault();
+    }
 }, true);
 
 window.addEventListener('keyup', (event) => {
-    handleKeyEvent(event.code, false);
-    event.preventDefault();
+    if (handleKeyEvent(event.code, false)) {
+        event.preventDefault();
+    }
 }, true);
 
 interface ShaderSource {
@@ -208,6 +241,9 @@ function drawMesh(mesh: Mesh, shader: ShaderProgram, worldMatrix: mat4, mvpMatri
     gl.bindVertexArray(null);
 }
 
+let lightHeight = Math.PI / 4;
+let lightAngle = Math.PI / 4;
+
 let lastRenderTime = 0;
 function render(time: number): void {
     let dt = Math.min((time - lastRenderTime) / 1000, 1 / 30);
@@ -236,16 +272,49 @@ function render(time: number): void {
     }
     y += vy * dt;
 
-    let camPosX = Math.sin(cameraPositionAngle) * cameraPositionRadius;
-    let camPosZ = Math.cos(cameraPositionAngle) * cameraPositionRadius;
+    let lightHeightVelocity = 0;
+    if (lightDownPressed) {
+        lightHeightVelocity -= 2;
+    }
+    if (lightUpPressed) {
+        lightHeightVelocity += 2;
+    }
+    lightHeight += lightHeightVelocity * dt;
+    lightHeight = Math.max(Math.min(lightHeight, Math.PI / 2), 0);
+
+    let lightAngleVelocity = 0;
+    if (lightLeftPressed) {
+        lightAngleVelocity -= 2;
+    }
+    if (lightRightPressed) {
+        lightAngleVelocity += 2;
+    }
+    lightAngle += lightAngleVelocity * dt;
+
+    let lightdir =
+        new mat4().setIdentity().rotate(
+            lightHeight, new vec3([-1, 0, 0])
+        ).rotate(
+            lightAngle, new vec3([0, 1, 0])
+        ).multiplyVec3(new vec3([0, 0, 1]));
 
     let viewMatrix = mat4.lookAt(cameraPosition(), cameraTarget, new vec3([0, 1, 0]));
     proj.multiply(viewMatrix);
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    gl.useProgram(treeShader.id);
+    gl.uniform3fv(treeShader.uniformLocations["lightdir"], lightdir.xyz);
     drawMesh(treeMesh, treeShader, mat4.identity, proj);
+
+    gl.useProgram(sandShader.id);
+    gl.uniform3fv(sandShader.uniformLocations["lightdir"], lightdir.xyz);
     drawMesh(sandMesh, sandShader, mat4.identity, proj);
+
+    gl.useProgram(leafShader.id);
+    gl.uniform3fv(leafShader.uniformLocations["lightdir"], lightdir.xyz);
+    drawMesh(leafMesh, leafShader, mat4.identity, proj);
+
     drawMesh(waterMesh, waterShader, mat4.identity, proj);
 
     if (raycasts.length > 0) {
@@ -467,6 +536,55 @@ function createWaterMesh(): Mesh {
     return createMesh(vertexData, indices, waterShader.id);
 }
 
+function createLeafMesh() {
+    let shaderId = leafShader.id;
+    let vertexData = new Float32Array([
+        0, 0, 0,
+        0, 0, 1,
+        0, 0,
+
+        0, 1, 0,
+        0, 0, 1,
+        0, 1,
+
+        1, 0, 0,
+        0, 0, 1,
+        1, 0,
+
+        1, 1, 0,
+        0, 0, 1,
+        1, 1,
+    ]);
+    let indices = new Uint16Array([0, 1, 2, 1, 3, 2]);
+
+    let vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    let buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertexData, gl.STATIC_DRAW);
+
+    let posLocation = gl.getAttribLocation(shaderId, "a_position");
+    let normLocation = gl.getAttribLocation(shaderId, "a_normal");
+    let texCoordsLocation = gl.getAttribLocation(shaderId, "a_tex_coords");
+    gl.enableVertexAttribArray(posLocation);
+    gl.enableVertexAttribArray(normLocation);
+    gl.enableVertexAttribArray(texCoordsLocation);
+
+    // Normals come after positions in the array
+    let size = 3, normalize = false, stride = (DATA_PER_VERTEX + 2) * 4;
+    gl.vertexAttribPointer(posLocation, size, gl.FLOAT, normalize, stride, 0);
+    gl.vertexAttribPointer(normLocation, size, gl.FLOAT, normalize, stride, 3*4);
+    gl.vertexAttribPointer(texCoordsLocation, 2, gl.FLOAT, normalize, stride, 6*4;
+
+    // Buffer indices
+    let indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+    return {vao: vao, indexAmount: indices.length };
+}
+
 // Based on http://geomalgorithms.com/a07-_distance.html
 function rayIntersectsCylinder(cylStart: vec3, cylEnd: vec3, startThickness: number, endThickness: number, rayPoint: vec3, rayDir: vec3): boolean {
     let cylDir = vec3.difference(cylEnd, cylStart);
@@ -619,7 +737,7 @@ function onLoad(): void {
     treeShader = createProgram([
         { shaderType: gl.VERTEX_SHADER, contents: genericVertexShader },
         { shaderType: gl.FRAGMENT_SHADER, contents: treeFragmentShader }
-    ], ["mvp", "world"]);
+    ], ["mvp", "world", "lightdir"]);
 
     rayShader = createProgram([
         { shaderType: gl.VERTEX_SHADER, contents: rayVertexShader },
@@ -629,18 +747,25 @@ function onLoad(): void {
     sandShader = createProgram([
         { shaderType: gl.VERTEX_SHADER, contents: genericVertexShader },
         { shaderType: gl.FRAGMENT_SHADER, contents: sandFragmentShader }
-    ], ["mvp", "world"]);
+    ], ["mvp", "world", "lightdir"]);
 
     waterShader = createProgram([
         { shaderType: gl.VERTEX_SHADER, contents: genericVertexShader },
         { shaderType: gl.FRAGMENT_SHADER, contents: waterFragmentShader }
     ], ["mvp", "world"]);
 
+    leafShader = createProgram([
+        { shaderType: gl.VERTEX_SHADER, contents: leafVertexShader },
+        { shaderType: gl.FRAGMENT_SHADER, contents: leafFragmentShader }
+    ], ["mvp", "world", "lightdir"]);
+
     tree = generateTree();
     treeMesh = createTreeMesh(tree);
 
     sandMesh = createSandMesh();
     waterMesh = createWaterMesh();
+
+    leafMesh = createLeafMesh();
 
     canvas.addEventListener('click', (event) => {
         let camPos = cameraPosition()
