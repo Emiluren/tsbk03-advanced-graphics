@@ -15,7 +15,7 @@ Our goal was to create a simulation of a growing bonsai tree. The user was suppo
 * A day-night cycle.
 * Wind animation and shadows.
 
-We underestimated the challenges we would face concerning the tree structure generation and so tree shadows which we said we would have in the final result were not implemented. We also forgot to avoid the creation of holes in the mesh so when branches are cut off, they reveal the mesh's hollow inside. A simple wind animation was implemented in a shader but that code was never merged with our master branch.
+We underestimated the challenges we would face concerning the tree structure generation and so tree shadows, which we said we would have in the final result, were not implemented. We also forgot to avoid the creation of holes in the mesh so when branches are cut off, they reveal the mesh's hollow inside. A simple wind animation was implemented in a shader but that code was never merged with our master branch.
 
 At the start of the project we also made a list of optional features that we could work on in case that all the mandatory features were completed. These included:  
 
@@ -48,8 +48,10 @@ The so called segments generated from the tree algorithm were treated as the end
 To cut branches of the tree a ray was cast from the cameras position in the direction of the mouse cursor where the user clicked. The tree was traversed to find any branch that intersected with the ray. The first ray that was hit was removed from the structure and then the mesh was regenerated.
 
 ### Texture generation
-All of the textures used in the project were procedurally generated in shaders. The bark of the tree was created using a 3-dimensional worley noise, which gives a sort of voronoi pattern. The exact coordinates of the closest points were used instead of just the distances to be able to create a thin edge line. The coordinates used for this noise were slightly offset with a psuedo perlin noise to give more irregular edges.
+![](bark.png)  
+All of the textures used in the project were procedurally generated in shaders. The bark of the tree was created using a 3-dimensional worley noise, which gives a sort of voronoi pattern. The exact coordinates of the closest points were used instead of just the distances to be able to create a thin edge line. The coordinates used for this noise were slightly offset with a psuedo perlin noise to give more irregular edges. The texture generation used the surface's world coordinates as input which guaranteed that the pattern was continous even at branch splits.
 
+![](leaf.png)  
 The texture for the ground used a simple perlin noise and the leaves used a procedural texture shader we found online so we cannot take any credit for that.
 
 ## Interesting problems
@@ -78,5 +80,13 @@ One of the highest performance drains in this project is the way the leaves are 
 
 Lastly it would of course be interesting to properly implement some of the still-missing features described by the Weber-Penn model, such as fixing the generation of sub-branches. Seeing as the model has frequently been more trouble than it's been worth however, it may be pertinent to use it as more of a guide than something to be followed precisely.
 
+The generated leaf texture causes a lot of aliasing artifacts which could probably have been avoided with some more knowledge of the shader code. However they were already pointlessly expensive to generate in the fragment shader since they were always identical for all leaves. It would have been a better idea to bake it once when the program starts or to just put it in a file like a normal texture.
+
 ## References
-List references.
+- "Vorocracks" (https://www.shadertoy.com/view/lsVyRy), the basic idea we used for our bark texture.
+
+- "Voronoi edges" (http://www.iquilezles.org/www/articles/voronoilines/voronoilines.htm), explains how to get good edges using worley noise.
+
+- "Leaf reduced" (https://www.shadertoy.com/view/MslfWn), we used this shader for our leaves.
+
+- "Procedural Textures in GLSL" (Stefan Gustavsson, OpenGL Insights), explains how to use perlin and worley noise in shaders.
