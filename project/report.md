@@ -217,27 +217,27 @@ SCALE = 3;
 ![](bumpy.png)  
 If `CURVE_V` is really high, it can create a bumpy mesh because it twists itself.
 ```
-let CURVE_RES = [10, 0, 0];
-let CURVE = [Math.PI / 2.1, Math.PI / 5, Math.PI / 14];
-let CURVE_V = [Math.PI * 10, Math.PI / 1.5, Math.PI / 3];
-let SEG_SPLIT = [0.15, 0.4, 0];
-let SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
-let LENGTH = [4, 0.5, 1];
-let SHAPE = Shapes.Cylindrical;
-let BASE_SIZE = 1;
-let SCALE = 0.6;
+CURVE_RES = [10, 0, 0];
+CURVE = [Math.PI / 2.1, Math.PI / 5, Math.PI / 14];
+CURVE_V = [Math.PI * 10, Math.PI / 1.5, Math.PI / 3];
+SEG_SPLIT = [0.15, 0.4, 0];
+SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
+LENGTH = [4, 0.5, 1];
+SHAPE = Shapes.Cylindrical;
+BASE_SIZE = 1;
+SCALE = 0.6;
 ```
 
 ![](twisting.png)  
 A high `CURVE` and `CURVE_V` can create a tree that twists along its own axis.
 ```
-let CURVE_RES = [10, 0, 0];
-let CURVE = [Math.PI * 2, Math.PI / 5, Math.PI / 14];
-let CURVE_V = [Math.PI / 0.3, Math.PI / 1.5, Math.PI / 3];
-let SEG_SPLIT = [0.15, 0.4, 0];
-let SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
-let LENGTH = [4, 0.5, 1];
-let SHAPE: Shapes = Shapes.Cylindrical;
-let BASE_SIZE = 1;
-let SCALE = 0.6;
+CURVE_RES = [10, 0, 0];
+CURVE = [Math.PI * 2, Math.PI / 5, Math.PI / 14];
+CURVE_V = [Math.PI / 0.3, Math.PI / 1.5, Math.PI / 3];
+SEG_SPLIT = [0.15, 0.4, 0];
+SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
+LENGTH = [4, 0.5, 1];
+SHAPE = Shapes.Cylindrical;
+BASE_SIZE = 1;
+SCALE = 0.6;
 ```
