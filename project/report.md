@@ -27,14 +27,15 @@ The so called segments generated from the tree algorithm were treated as the end
 To cut branches of the tree a ray was cast from the cameras position in the direction of the mouse cursor where the user clicked. The tree was traversed to find any branch that intersected with the ray. The first ray that was hit was removed from the structure and then the mesh was regenerated.
 
 ### Texture generation
-![](bark.png)  
+![Bark texture](bark.png)  
 All of the textures used in the project were procedurally generated in shaders. The bark of the tree was created using a 3-dimensional worley noise, which gives a sort of voronoi pattern. The exact coordinates of the closest points were used instead of just the distances to be able to create a thin edge line. The coordinates used for this noise were slightly offset with a psuedo perlin noise to give more irregular edges. The texture generation used the surface's world coordinates as input which guaranteed that the pattern was continous even at branch splits.
 
-![](leaf.png)  
+![Leaf texture](leaf.png)  
 The texture for the ground used a simple perlin noise and the leaves used a procedural texture shader we found online so we cannot take any credit for that.
 
 ## Interesting problems
-Did you run into any particular problems during the work?
+![Weird tree](wonky_tree.jpg)  
+For a while we had an incorrect order for some matrix multiplications that were used for segment rotations and translations which caused a really strange result. It basically made all branches bend 90 degrees every time.
 
 ## Conclusions
 
