@@ -30,17 +30,17 @@ enum Shapes {
 // a level corresponding to the index of the element in question
 
 // Number of segments per branch. Keep low if using high SEG_SPLIT as the number of segments will grow exponentially.
-let CURVE_RES = [6, 0, 0];
+let CURVE_RES = [10, 0, 0];
 
 // Controls magnitude of x-axis curvature in branches
-let CURVE = [Math.PI / 5, Math.PI / 5, Math.PI / 14];
+let CURVE = [Math.PI * 2, Math.PI / 5, Math.PI / 14];
 // Controls magnitude of y-axis curvature in branches
-let CURVE_V = [Math.PI, Math.PI / 1.5, Math.PI / 3];
+let CURVE_V = [Math.PI / 0.3, Math.PI / 1.5, Math.PI / 3];
 
 // Controls amount of clones created each segment.
-let SEG_SPLIT = [0.4, 0.4, 9999999];
+let SEG_SPLIT = [0.15, 0.4, 0];
 // Controls how much new clones will rotate away from their parents.
-let SPLIT_ANGLE = [Math.PI / 8, Math.PI / 2, Math.PI / 43];
+let SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
 
 // Controls lenght of branches
 let LENGTH = [4, 0.5, 1];
