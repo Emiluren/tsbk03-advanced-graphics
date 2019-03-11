@@ -37,7 +37,27 @@ The texture for the ground used a simple perlin noise and the leaves used a proc
 Did you run into any particular problems during the work?
 
 ## Conclusions
-How did it come out? How could it have been done better?
+
+### Feature creep
+We were sadly not able to completely implement all the features stated in our specification. Problems with implementing the Weber-Penn model meant we had to abandon any shadow-rendering more complicated than that offered by the basic Phong-model used to color our polygons. This naturally meant we also did not have time to implement any of the more advanced features originally listed as optional features, with the exception of procedural textures. The general lack of time left towards the end of the course also lead to a few oversights, such as cut branches leaving holes in the mesh.
+
+### Generator, not simulator
+As the name of the project implies, we initially intended to simulate the growth of a plant with the user being able to control said growth by cutting specific branches. As we eventually chose to pursue the model described by Weber and Penn however, this idea was scrapped in favor of generating static, fully grown trees, retaining the ability to cut their branches after the fact.
+
+### Trees are home to a large part of the worlds' bug population<sup>[2]</sup>
+Our implementation of the Weber-Penn model is far from perfect. Especially for complex trees it seems that the program fails to properly populate every branch with a correct number of leaves, leaving some completely barren. Certain parts of the Weber-Penn model are available via their parameters, but do not recommend using these as their results end up looking very weird, for example when using the BRANCHES-parameter to generate sub-branches.
+
+### Results
+Even with these problems in mind it is the opinion of this author that you can create some fairly good-looking (if somewhat basic) trees using our program. And these trees can be varied to an almost infinite degree by way of slight parameter shifts.
+
+![Image](weber_penn_tree.png)
+
+### Future work
+It would potentially be interesting to enable the program to export generated trees into .obj files to be used in other projects. The relative simplicity of the generated trees would make them suitable for prototyping or where ever the quantity of trees is more important than their respective quality.
+
+One of the highest performance drains in this project is the way the leaves are generated. If the leaves' textures could be instantiated once and then rendered using some high-performance method such as instancing (or perhaps replaced using a particle system) the program should be able to generate much more lush and thick foliage in its trees.
+
+Lastly it would of course be interesting to properly implement some of the still-missing features described by the Weber-Penn model, such as fixing the generation of sub-branches. Seeing as the model has frequently been more trouble than it's been worth however, it may be pertinent to use it as more of a guide than something to be followed precisely.
 
 The generated leaf texture causes a lot of aliasing artifacts which could probably have been avoided with some more knowledge of the shader code. However they were already pointlessly expensive to generate in the fragment shader since they were always identical for all leaves. It would have been a better idea to bake it once when the program starts or to just put it in a file like a normal texture.
 
