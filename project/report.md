@@ -5,7 +5,7 @@ Erik Mansén - erima668, Emil Segerbäck - emise935
 ## Introduction
 Our goal was to create a simulation of a growing bonsai tree. The user was supposed to be able to cut branches to control the growth of the tree. Our features we picked as mandatory were: WebGL graphics, procedural generation of the tree structure, a generated mesh for that skeleton, some texture covering the mesh, procedural generation of leaves, ability to cut off branches without creating holes in the mesh, 3D camera controls, a day-night cycle, wind animation and shadows.
 
-We underestimated the challenges we would face concerning the tree structure generation and so tree shadows which we said we would have in the final result were not implemented. We also forgot to avoid the creation of holes in the mesh so when branches are cut off, they reveal the mesh's hollow inside. A simple wind animation was implemented in a shader but that code was never merged with our master branch.
+We underestimated the challenges we would face concerning the tree structure generation and so tree shadows, which we said we would have in the final result, were not implemented. We also forgot to avoid the creation of holes in the mesh so when branches are cut off, they reveal the mesh's hollow inside. A simple wind animation was implemented in a shader but that code was never merged with our master branch.
 
 At the start of the project we also made a list of optional features that we could work on in case that all the mandatory features were completed. These included: sunlight-seeking tree growth, shading objects that influence the tree's growth, branches falling after being cut off and collision with other branches, water simulation and watering of the tree, birds who collect small branches and build nests, procedural texture generation, a neural network for texture generation, advanced shadows with self shading and more trees. The only one of these that were implemented was a simple procedural generation of textures.
 
@@ -27,8 +27,10 @@ The so called segments generated from the tree algorithm were treated as the end
 To cut branches of the tree a ray was cast from the cameras position in the direction of the mouse cursor where the user clicked. The tree was traversed to find any branch that intersected with the ray. The first ray that was hit was removed from the structure and then the mesh was regenerated.
 
 ### Texture generation
-All of the textures used in the project were procedurally generated in shaders. The bark of the tree was created using a 3-dimensional worley noise, which gives a sort of voronoi pattern. The exact coordinates of the closest points were used instead of just the distances to be able to create a thin edge line. The coordinates used for this noise were slightly offset with a psuedo perlin noise to give more irregular edges.
+![](bark.png)  
+All of the textures used in the project were procedurally generated in shaders. The bark of the tree was created using a 3-dimensional worley noise, which gives a sort of voronoi pattern. The exact coordinates of the closest points were used instead of just the distances to be able to create a thin edge line. The coordinates used for this noise were slightly offset with a psuedo perlin noise to give more irregular edges. The texture generation used the surface's world coordinates as input which guaranteed that the pattern was continous even at branch splits.
 
+![](leaf.png)  
 The texture for the ground used a simple perlin noise and the leaves used a procedural texture shader we found online so we cannot take any credit for that.
 
 ## Interesting problems
@@ -37,5 +39,13 @@ Did you run into any particular problems during the work?
 ## Conclusions
 How did it come out? How could it have been done better?
 
+The generated leaf texture causes a lot of aliasing artifacts which could probably have been avoided with some more knowledge of the shader code. However they were already pointlessly expensive to generate in the fragment shader since they were always identical for all leaves. It would have been a better idea to bake it once when the program starts or to just put it in a file like a normal texture.
+
 ## References
-List references.
+- "Vorocracks" (https://www.shadertoy.com/view/lsVyRy), the basic idea we used for our bark texture.
+
+- "Voronoi edges" (http://www.iquilezles.org/www/articles/voronoilines/voronoilines.htm), explains how to get good edges using worley noise.
+
+- "Leaf reduced" (https://www.shadertoy.com/view/MslfWn), we used this shader for our leaves.
+
+- "Procedural Textures in GLSL" (Stefan Gustavsson, OpenGL Insights), explains how to use perlin and worley noise in shaders.
