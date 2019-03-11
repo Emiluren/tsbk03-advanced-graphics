@@ -15,7 +15,19 @@ At the start of the project we also made a list of optional features that we cou
 Any information about the kind of problem you solved that is needed to follow the rest of the report.
 
 ## About your implementation
-Tools used, program structure.
+We wrote the game using WebGL and Typescript which compiles to JavaScript. For the 3D math we found a library called tsm. To load our shader source at the same time as our compiled JavaScript we used the program Webpack to bundle them into a single file. The code was mostly split into two parts: the generation of the abstract tree structure and the generation of a mesh from that tree structure.
+
+### Tree structure greneration
+
+### Mesh generation
+The so called segments generated from the tree algorithm were treated as the ends cylinder like parts of the tree's branches. The mesh generation started at the root segment and generated a cylinder shell of triangles to each of its child segments. This algorithm was then executed recursively for each of the children to generate the mesh parts for the grandchildren. Each leaf was generated as two triangles in a quad formation for all the generated leaf locations.
+
+To cut branches of the tree a ray was cast from the cameras position in the direction of the mouse cursor where the user clicked. The tree was traversed to find any branch that intersected with the ray. The first ray that was hit was removed from the structure and then the mesh was regenerated.
+
+### Texture generation
+All of the textures used in the project were procedurally generated in shaders. The bark of the tree was created using a 3-dimensional worley noise, which gives a sort of voronoi pattern. The exact coordinates of the closest points were used instead of just the distances to be able to create a thin edge line. The coordinates used for this noise were slightly offset with a psuedo perlin noise to give more irregular edges.
+
+The texture for the ground used a simple perlin noise and the leaves used a procedural texture shader we found online so we cannot take any credit for that.
 
 ## Interesting problems
 Did you run into any particular problems during the work?
