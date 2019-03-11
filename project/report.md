@@ -40,7 +40,8 @@ All of this relies upon having a good enough model that ensures the resulting tr
 ## About your implementation
 We wrote the game using WebGL and Typescript which compiles to JavaScript. For the 3D math we found a library called tsm. To load our shader source at the same time as our compiled JavaScript we used the program Webpack to bundle them into a single file. The code was mostly split into two parts: the generation of the abstract tree structure and the generation of a mesh from that tree structure.
 
-### Tree structure greneration
+### Tree structure generation
+
 
 ### Mesh generation
 The so called segments generated from the tree algorithm were treated as the ends cylinder like parts of the tree's branches. The mesh generation started at the root segment and generated a cylinder shell of triangles to each of its child segments. This algorithm was then executed recursively for each of the children to generate the mesh parts for the grandchildren. Each leaf was generated as two triangles in a quad formation for all the generated leaf locations.
@@ -65,7 +66,7 @@ We were sadly not able to completely implement all the features stated in our sp
 ### Generator, not simulator
 As the name of the project implies, we initially intended to simulate the growth of a plant with the user being able to control said growth by cutting specific branches. As we eventually chose to pursue the model described by Weber and Penn however, this idea was scrapped in favor of generating static, fully grown trees, retaining the ability to cut their branches after the fact.
 
-### Trees are home to a large part of the worlds' bug population<sup>[2]</sup>
+### Trees are home to a large part of the worlds' bug population<sup>[5]</sup>
 Our implementation of the Weber-Penn model is far from perfect. Especially for complex trees it seems that the program fails to properly populate every branch with a correct number of leaves, leaving some completely barren. Certain parts of the Weber-Penn model are available via their parameters, but do not recommend using these as their results end up looking very weird, for example when using the BRANCHES-parameter to generate sub-branches.
 
 ### Results
@@ -83,10 +84,13 @@ Lastly it would of course be interesting to properly implement some of the still
 The generated leaf texture causes a lot of aliasing artifacts which could probably have been avoided with some more knowledge of the shader code. However they were already pointlessly expensive to generate in the fragment shader since they were always identical for all leaves. It would have been a better idea to bake it once when the program starts or to just put it in a file like a normal texture.
 
 ## References
-- "Vorocracks" (https://www.shadertoy.com/view/lsVyRy), the basic idea we used for our bark texture.
+1. "Vorocracks" (https://www.shadertoy.com/view/lsVyRy), the basic idea we used for our bark texture.
 
-- "Voronoi edges" (http://www.iquilezles.org/www/articles/voronoilines/voronoilines.htm), explains how to get good edges using worley noise.
+2. "Voronoi edges" (http://www.iquilezles.org/www/articles/voronoilines/voronoilines.htm), explains how to get good edges using worley noise.
 
-- "Leaf reduced" (https://www.shadertoy.com/view/MslfWn), we used this shader for our leaves.
+3. "Leaf reduced" (https://www.shadertoy.com/view/MslfWn), we used this shader for our leaves.
 
-- "Procedural Textures in GLSL" (Stefan Gustavsson, OpenGL Insights), explains how to use perlin and worley noise in shaders.
+4. "Procedural Textures in GLSL" (Stefan Gustavsson, OpenGL Insights), explains how to use perlin and worley noise in shaders.
+
+5. "THE NUMBER OF SPECIES OF INSECT ASSOCIATED WITH
+VARIOUS TREES" (T. R. E. Southwood, Department of Zoology, Imperial College, London).
