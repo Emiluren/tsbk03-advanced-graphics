@@ -42,12 +42,28 @@ All of this relies upon having a good enough model that ensures the resulting tr
 We wrote the game using WebGL and Typescript which compiles to JavaScript. For the 3D math we found a library called tsm. To load our shader source at the same time as our compiled JavaScript we used the program Webpack to bundle them into a single file. The code was mostly split into two parts: the generation of the abstract tree structure and the generation of a mesh from that tree structure.
 
 ### Tree structure generation
-The model described in the paper written by Weber and Penn (hereafter referred to as the Weber-Penn model) works by defining a large set of variables used to describe the shape of a tree. The original model describes a total of 40 parameters that intermingle according to a complicated set of mathematical formulae in order to angle and position the branches and leaves of a tree to create its final shape. The paper 
+The model described in the paper written by Weber and Penn (hereafter referred to as the Weber-Penn model) works by defining a large set of variables used to describe the shape of a tree. The original model describes a total of 40 parameters that intermingle according to a complicated set of mathematical formulae in order to angle and position the branches and leaves of a tree to create its final shape. The paper sometimes makes it difficult to figure out what the exact effects of a particular parameter is and what will happen if it is changed. For example, when a branch splits off into so-called "clones" (more on this below) the resulting new clones should all be rotated away from the original direction by the angle:
 
+    angle = (nSplitAngle±nSplitAngleV) - declination
 
-* CURVE_RES, CURVE, CURVE_BACK, CURVE_V for controlling various angles of a tree's branches.
-* SEG_SPLIT and SPLIT_ANGLE
-* SHAPE which acts as a selector for a function controlling branch length, indirectly affecting the overall shape of the tree.
+Where nSplitAngle and nSplitAngleV are parameters. nSplitAngleV is never used on its own and the meaning of the ± operator is never made clear. As such the decision was made to simplify several of the parameters into a smaller set. We also decided to skip some of the more "situational" parameters such as nCurveBack which controls whether a branch should form a single curve or follow an S-shape. The latter of these proved very challenging to implement and was therefore ignored. The result of all this is that our program implements a subset of the full Weber-Penn model using only 18 parameters which will be denoted using all capital letters in this document. The parameters used by our model are:
+
+* **CURVE_RES**, which controls how segmented our tree becomes, higher values allows for smoother curves.
+* **CURVE** and **CURVE_V**, controls x-axis and y-axis rotation of the branches, respectively.
+* **SEG_SPLIT** and **SPLIT_ANGLE**, controls how cloned branches behave, more on this below.
+* **SHAPE** and **LENGTH**, controls the overall length of the branches, somewhat hard to predict what effect they will have.
+* **BASE_SIZE** and **SCALE**, scales the overall size of the tree.
+* **RATIO**, **RATIO_POWER** and **TAPER**, controls the thickness of branches with **TAPER** in particular controlling how the branches taper of towards the end.
+* **BRANCHES**, **CHILD_OFFSET**, **CHILD_ANGLE_X**, **CHILD_ANGLE_Y**, controls how sub-branches behave. Sub-branches were never properly implemented and these values are as such very buggy when used.
+* **LEAVES** and **LEAF_ANGLE**, controls the amount and placement of leaves on the tree.
+
+As explained in the original paper, these parameters are used to determine various composite values that are then applied to rotate and position the branches of the tree.
+
+A tree in the Weber-Penn model is made up of a number of circular "segments", beginning with the root segment at the bottom of the tree. In our implementation, these segments form a tree also in the graph-theory sense of the word, every segment holds a list of children segments who in their turn have their own children, all the way out to the zero-radius segments at the ends of the branches. Our algorithm works by starting with a root segment and then iteratively placing the next segment with a position and rotation based upon the location and rotation of the previous segment values determined by the various parameters until CURVE_RES has been reached. At certain points along the way, the branch may split into "clones" in which case a new, branch will recursively be created and shoot off in another direction. This new branch will otherwise be identical to the original. The frequency of clones forming is based upon the SEG_SPLIT parameter, and works such that SEG_SPLIT new clones will be created each segment. For this reason SEG_SPLIT is best kept below 1 or the number of clones will grow exponentially.
+
+After the tree has been generated leaves are added by iteratively traverse the (now literal) tree-structure and placing leaves along the branches at a rate inversely proportional to how much length of that branch remains.
+
+Lastly, the model describes a concept called "sub-branches" that, unlike clones, can shoot off of a main branch (or other sub-branch) at any point and then use its own set of parameters to achieve a certain shape. This is the reason many of our parameters are provided as vectors, each subsequent level of sub-branches being supposed to use the parameters found at the index corresponding to how many "parent" branches can be found above it.
 
 ### Mesh generation
 The so called segments generated from the tree algorithm were treated as the ends cylinder like parts of the tree's branches. The mesh generation started at the root segment and generated a cylinder shell of triangles to each of its child segments. This algorithm was then executed recursively for each of the children to generate the mesh parts for the grandchildren. Each leaf was generated as two triangles in a quad formation for all the generated leaf locations.
@@ -66,6 +82,11 @@ The texture for the ground used a simple perlin noise and the leaves used a proc
 For a while we had an incorrect order for some matrix multiplications that were used for segment rotations and translations which caused a really strange result. It basically made all branches bend 90 degrees every time.
 
 We also ran into some problems that were not quite as spectacular: we used 16-bit integers for mesh which caused some overflows if the number of vertices was really high and using an external math library in Typescript caused some difficulties with library paths.
+
+### Problems with the Weber-Penn model
+We initially decided to use the Weber-Penn model after finding their paper when researching ways other people have done tree generation and it seemed like they had quite a few good ideas. However, upon actually starting to implement their model we quickly discovered that the paper was somewhat lacking when it comes to properly describing how some of its parameters are supposed to work. This led to a lot of guesswork when attempting to implement the model in a way we could use and eventually led to us abandoning many of their parameters in favor of implementations that made more sense to us. A good example of this would be the way we handle leaves, the original paper handles them in a much more complicated way without really reaching all that much more fidelity.
+
+We were never able to get the concept of sub-branches working, through some misunderstanding of their paper or more mis-ordered matrix multiplications. The sub-branches we do have seem to generate in the correct way but their final lengths and positions end up way off, and as such they should probably not be used. This is unfortunate as the model depends on sub-branches to properly mimic certain types of trees.
 
 ## Conclusions
 
