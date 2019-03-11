@@ -36,7 +36,7 @@ Trees in the natural world can come in a large number of complicated shapes and 
 
 Being able to procedurally generate a single tree is not good enough however, as populating an entire forest with hundreds of identical trees will tend to look very unnatural. By varying the geometry of the tree over a series a of parameters it is possible to create any number of completely unique trees. If implemented correctly, this also allows the same program to create different variants and species of tree by carefully selecting the correct parameters.
 
-All of this relies upon having a good enough model that ensures the resulting trees will always look more or less natural and correct. This is provided by Jason Weber and Joseph Penn who, in their paper "Creation and Rendering of Trees" describe a model for creating natural-looking trees by varying a set of parameters.
+All of this relies upon having a good enough model that ensures the resulting trees will always look more or less natural and correct. This is provided by Jason Weber and Joseph Penn who, in their paper "Creation and Rendering of Trees"<sup>[6]</sup> describe a model for creating natural-looking trees by varying a set of parameters.
 
 ## About your implementation
 We wrote the game using WebGL and Typescript which compiles to JavaScript. For the 3D math we found a library called tsm<sup>[5]</sup>. To load our shader source at the same time as our compiled JavaScript we used the program Webpack to bundle them into a single file. The code was mostly split into two parts: the generation of the abstract tree structure and the generation of a mesh from that tree structure.
@@ -101,7 +101,7 @@ We were sadly not able to completely implement all the features stated in our sp
 ### Generator, not simulator
 As the name of the project implies, we initially intended to simulate the growth of a plant with the user being able to control said growth by cutting specific branches. As we eventually chose to pursue the model described by Weber and Penn however, this idea was scrapped in favor of generating static, fully grown trees, retaining the ability to cut their branches after the fact.
 
-### Trees are home to a large part of the worlds' bug population<sup>[6]</sup>
+### Trees are home to a large part of the worlds' bug population<sup>[7]</sup>
 Our implementation of the Weber-Penn model is far from perfect. Especially for complex trees it seems that the program fails to properly populate every branch with a correct number of leaves, leaving some completely barren. Certain parts of the Weber-Penn model are available via their parameters, but do not recommend using these as their results end up looking very weird, for example when using the BRANCHES-parameter to generate sub-branches.
 
 ### Technology used
@@ -136,10 +136,12 @@ The generated leaf texture causes a lot of aliasing artifacts which could probab
 
 5. "tsm: A Typescript vector and matrix math library" (https://github.com/tlaukkan/tsm/)
 
-6. "THE NUMBER OF SPECIES OF INSECT ASSOCIATED WITH
+6. Creation and Rendering of Realistic Trees (Jason Weber and Joseph Penn)
+
+7. "THE NUMBER OF SPECIES OF INSECT ASSOCIATED WITH
 VARIOUS TREES" (T. R. E. Southwood, Department of Zoology, Imperial College, London).
 
-TODO: BREAK PAGE HERE
+<div style="page-break-after: always;"></div>
 
 # Appendix: Different trees and the variables used to create them
 ![](normal.png)  
