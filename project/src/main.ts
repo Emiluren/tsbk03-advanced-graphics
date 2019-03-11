@@ -33,14 +33,14 @@ enum Shapes {
 let CURVE_RES = [6, 0, 0];
 
 // Controls magnitude of x-axis curvature in branches
-let CURVE = [Math.PI / 3, Math.PI / 0.05, Math.PI / 14];
+let CURVE = [Math.PI / 5, Math.PI / 5, Math.PI / 14];
 // Controls magnitude of y-axis curvature in branches
-let CURVE_V = [Math.PI / 2, Math.PI / 1.5, Math.PI / 3];
+let CURVE_V = [Math.PI, Math.PI / 1.5, Math.PI / 3];
 
 // Controls amount of clones created each segment.
 let SEG_SPLIT = [0.4, 0.4, 9999999];
 // Controls how much new clones will rotate away from their parents.
-let SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
+let SPLIT_ANGLE = [Math.PI / 8, Math.PI / 2, Math.PI / 43];
 
 // Controls lenght of branches
 let LENGTH = [4, 0.5, 1];
@@ -71,7 +71,7 @@ let CHILD_ANGLE_X = [Math.PI / 0.1, Math.PI / 0.1, Math.PI / 5];
 let CHILD_ANGLE_Y = [Math.PI / 13, Math.PI / 14, 0];
 
 //Controls number of leaves per segment-pair. Grows exponentially with SEG_SPLIT, use with caution.
-let LEAVES = 10;
+let LEAVES = 15;
 let LEAF_ANGLE = Math.PI / 0.3; //Leaf rotation around y-axis
 
 let ZERO_VECTOR = new vec3([0, 0, 0]);
