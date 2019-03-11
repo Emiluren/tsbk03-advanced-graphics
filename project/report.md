@@ -1,5 +1,5 @@
 # Bonsai-Simulator Xtrem
-**Procedurell generation av trädgrafik för kursen TSBK03.**  
+**Procedurell generation av trädgrafik för kursen TSBK03.**
 Erik Mansén - erima668, Emil Segerbäck - emise935
 
 ## Introduction
