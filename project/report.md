@@ -23,12 +23,13 @@ At the start of the project we also made a list of optional features that we cou
 * Shading objects that influence the tree's growth
 * Branches falling after being cut off and collision with other branches
 * Water simulation and watering of the tree
-* Birds who collect small branches and build nests,
+* Birds landing on branches
+  * Birds collect small branches and build nests,
 * Procedural texture generation
-* A neural network for texture generation
+  * Generate textures using a neural network
 * Advanced shadows with self shading and more trees.
 
-The only one of these that were implemented was a simple procedural generation of textures.
+The only one of these that were implemented was a simple procedural generation of textures. However, not using a neural network.
 
 ## Background information.
 Trees in the natural world can come in a large number of complicated shapes and sizes. Modelling a tree from scratch is a complicated procedure as any given tree may consist of a large number of branches, sub-branches and leaves all with their own distinctive positions and orientations, not even mentioning the coloration of the differing components. All of these elements must also be made to fit together in such a way that the tree ends up looking natural and "organic". The challenge we attempted to overcome was therefore to create a program which would automatically create a realistic-looking tree mesh.
@@ -54,14 +55,17 @@ The so called segments generated from the tree algorithm were treated as the end
 To cut branches of the tree a ray was cast from the cameras position in the direction of the mouse cursor where the user clicked. The tree was traversed to find any branch that intersected with the ray. The first ray that was hit was removed from the structure and then the mesh was regenerated.
 
 ### Texture generation
-![](bark.png)  
+![Bark texture](bark.png)  
 All of the textures used in the project were procedurally generated in shaders. The bark of the tree was created using a 3-dimensional worley noise, which gives a sort of voronoi pattern. The exact coordinates of the closest points were used instead of just the distances to be able to create a thin edge line. The coordinates used for this noise were slightly offset with a psuedo perlin noise to give more irregular edges. The texture generation used the surface's world coordinates as input which guaranteed that the pattern was continous even at branch splits.
 
-![](leaf.png)  
+![Leaf texture](leaf.png)  
 The texture for the ground used a simple perlin noise and the leaves used a procedural texture shader we found online so we cannot take any credit for that.
 
 ## Interesting problems
-Did you run into any particular problems during the work?
+![Weird tree](wonky_tree.jpg)  
+For a while we had an incorrect order for some matrix multiplications that were used for segment rotations and translations which caused a really strange result. It basically made all branches bend 90 degrees every time.
+
+We also ran into some problems that were not quite as spectacular: we used 16-bit integers for mesh which caused some overflows if the number of vertices was really high and using an external math library in Typescript caused some difficulties with library paths.
 
 ## Conclusions
 
@@ -74,8 +78,15 @@ As the name of the project implies, we initially intended to simulate the growth
 ### Trees are home to a large part of the worlds' bug population<sup>[5]</sup>
 Our implementation of the Weber-Penn model is far from perfect. Especially for complex trees it seems that the program fails to properly populate every branch with a correct number of leaves, leaving some completely barren. Certain parts of the Weber-Penn model are available via their parameters, but do not recommend using these as their results end up looking very weird, for example when using the BRANCHES-parameter to generate sub-branches.
 
+### Technology used
+We have mixed feelings about using Typescript for the project. On one hand it gave some improved error messages during development but it also required some extra work that might not be worth it for a project of such a small size as ours. It also made it harder to find a good math library that could be used which was surprising considering Typescript's apparent popularity.
+
+The math library we ended up going with caused some bugs because by default all of its vector and matrix operations reused one of the operands for the output to avoid generating garbage and improving performance. This meant that we had to be careful to either copy vectors or matrices before combinig them or making sure that they were not used more than once. We also spent way too much time on just being able to use the library from our code. We tried to use the "proper way" of specifying dependencies in a NPM (node package manager) file but we could never get this to work and so we ended up just cloning the other library into our project folder and refering to it using relative file paths.
+
+Webpack gave us the ability to load JavaScript and GLSL shaders in a single file but it made the code harder to debug since all code was put inside a JavaScript functions. Because of this we could not inspect variables using the browser console.
+
 ### Results
-Even with these problems in mind it is the opinion of this author that you can create some fairly good-looking (if somewhat basic) trees using our program. And these trees can be varied to an almost infinite degree by way of slight parameter shifts.
+Even with these problems in mind it is the opinion of the authors that you can create some fairly good-looking (if somewhat basic) trees using our program. And these trees can be varied to an almost infinite degree by way of slight parameter shifts.
 
 ![Image](weber_penn_tree.png)
 
