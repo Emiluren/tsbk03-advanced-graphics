@@ -39,7 +39,7 @@ Being able to procedurally generate a single tree is not good enough however, as
 All of this relies upon having a good enough model that ensures the resulting trees will always look more or less natural and correct. This is provided by Jason Weber and Joseph Penn who, in their paper "Creation and Rendering of Trees" describe a model for creating natural-looking trees by varying a set of parameters.
 
 ## About your implementation
-We wrote the game using WebGL and Typescript which compiles to JavaScript. For the 3D math we found a library called tsm. To load our shader source at the same time as our compiled JavaScript we used the program Webpack to bundle them into a single file. The code was mostly split into two parts: the generation of the abstract tree structure and the generation of a mesh from that tree structure.
+We wrote the game using WebGL and Typescript which compiles to JavaScript. For the 3D math we found a library called tsm<sup>[5]</sup>. To load our shader source at the same time as our compiled JavaScript we used the program Webpack to bundle them into a single file. The code was mostly split into two parts: the generation of the abstract tree structure and the generation of a mesh from that tree structure.
 
 ### Tree structure generation
 The model described in the paper written by Weber and Penn (hereafter referred to as the Weber-Penn model) works by defining a large set of variables used to describe the shape of a tree. The original model describes a total of 40 parameters that intermingle according to a complicated set of mathematical formulae in order to angle and position the branches and leaves of a tree to create its final shape. The paper sometimes makes it difficult to figure out what the exact effects of a particular parameter is and what will happen if it is changed. For example, when a branch splits off into so-called "clones" (more on this below) the resulting new clones should all be rotated away from the original direction by the angle:
@@ -71,14 +71,19 @@ The so called segments generated from the tree algorithm were treated as the end
 To cut branches of the tree a ray was cast from the cameras position in the direction of the mouse cursor where the user clicked. The tree was traversed to find any branch that intersected with the ray. The first ray that was hit was removed from the structure and then the mesh was regenerated.
 
 ### Texture generation
-![Bark texture](bark.png)  
-All of the textures used in the project were procedurally generated in shaders. The bark of the tree was created using a 3-dimensional worley noise, which gives a sort of voronoi pattern. The exact coordinates of the closest points were used instead of just the distances to be able to create a thin edge line. The coordinates used for this noise were slightly offset with a psuedo perlin noise to give more irregular edges. The texture generation used the surface's world coordinates as input which guaranteed that the pattern was continous even at branch splits.
 
-![Leaf texture](leaf.png)  
-The texture for the ground used a simple perlin noise and the leaves used a procedural texture shader we found online so we cannot take any credit for that.
+![Bark texture](bark.png)
+
+All of the textures used in the project were procedurally generated in shaders. The bark of the tree was created using a 3-dimensional worley noise, which gives a sort of voronoi pattern<sup>[1]</sup>. The exact coordinates of the closest points were used instead of just the distances to be able to create a thin edge line<sup>[2]</sup>. The coordinates used for this noise were slightly offset with a psuedo perlin noise to give more irregular edges. The texture generation used the surface's world coordinates as input which guaranteed that the pattern was continous even at branch splits.
+
+![Leaf texture](leaf.png)
+
+The texture for the ground used a simple perlin noise and the leaves used a procedural texture shader we found online<sup>[3]</sup> so we cannot take any credit for that.
 
 ## Interesting problems
-![Weird tree](wonky_tree.jpg)  
+
+![Strange tree](wonky_tree.jpg)
+
 For a while we had an incorrect order for some matrix multiplications that were used for segment rotations and translations which caused a really strange result. It basically made all branches bend 90 degrees every time.
 
 We also ran into some problems that were not quite as spectacular: we used 16-bit integers for mesh which caused some overflows if the number of vertices was really high and using an external math library in Typescript caused some difficulties with library paths.
@@ -96,20 +101,20 @@ We were sadly not able to completely implement all the features stated in our sp
 ### Generator, not simulator
 As the name of the project implies, we initially intended to simulate the growth of a plant with the user being able to control said growth by cutting specific branches. As we eventually chose to pursue the model described by Weber and Penn however, this idea was scrapped in favor of generating static, fully grown trees, retaining the ability to cut their branches after the fact.
 
-### Trees are home to a large part of the worlds' bug population<sup>[5]</sup>
+### Trees are home to a large part of the worlds' bug population<sup>[6]</sup>
 Our implementation of the Weber-Penn model is far from perfect. Especially for complex trees it seems that the program fails to properly populate every branch with a correct number of leaves, leaving some completely barren. Certain parts of the Weber-Penn model are available via their parameters, but do not recommend using these as their results end up looking very weird, for example when using the BRANCHES-parameter to generate sub-branches.
 
 ### Technology used
 We have mixed feelings about using Typescript for the project. On one hand it gave some improved error messages during development but it also required some extra work that might not be worth it for a project of such a small size as ours. It also made it harder to find a good math library that could be used which was surprising considering Typescript's apparent popularity.
 
-The math library we ended up going with caused some bugs because by default all of its vector and matrix operations reused one of the operands for the output to avoid generating garbage and improving performance. This meant that we had to be careful to either copy vectors or matrices before combinig them or making sure that they were not used more than once. We also spent way too much time on just being able to use the library from our code. We tried to use the "proper way" of specifying dependencies in a NPM (node package manager) file but we could never get this to work and so we ended up just cloning the other library into our project folder and refering to it using relative file paths.
+The math library we ended up going with, tsm<sup>[5]</sup>, caused some bugs because by default all of its vector and matrix operations reused one of the operands for the output to avoid generating garbage and improving performance. This meant that we had to be careful to either copy vectors or matrices before combinig them or making sure that they were not used more than once. We also spent way too much time on just being able to use the library from our code. We tried to use the "proper way" of specifying dependencies in a NPM (node package manager) file but we could never get this to work and so we ended up just cloning the other library into our project folder and refering to it using relative file paths.
 
 Webpack gave us the ability to load JavaScript and GLSL shaders in a single file but it made the code harder to debug since all code was put inside a JavaScript functions. Because of this we could not inspect variables using the browser console.
 
 ### Results
 Even with these problems in mind it is the opinion of the authors that you can create some fairly good-looking (if somewhat basic) trees using our program. And these trees can be varied to an almost infinite degree by way of slight parameter shifts.
 
-![Image](weber_penn_tree.png)
+![One possible tree generated by our program](weber_penn_tree.png)
 
 ### Future work
 It would potentially be interesting to enable the program to export generated trees into .obj files to be used in other projects. The relative simplicity of the generated trees would make them suitable for prototyping or where ever the quantity of trees is more important than their respective quality.
@@ -118,7 +123,7 @@ One of the highest performance drains in this project is the way the leaves are 
 
 Lastly it would of course be interesting to properly implement some of the still-missing features described by the Weber-Penn model, such as fixing the generation of sub-branches. Seeing as the model has frequently been more trouble than it's been worth however, it may be pertinent to use it as more of a guide than something to be followed precisely.
 
-The generated leaf texture causes a lot of aliasing artifacts which could probably have been avoided with some more knowledge of the shader code. However they were already pointlessly expensive to generate in the fragment shader since they were always identical for all leaves. It would have been a better idea to bake it once when the program starts or to just put it in a file like a normal texture.
+The generated leaf texture causes a lot of aliasing artifacts which could probably have been avoided with some more knowledge of the shader code. Stefan Gustavsson has a resource on procedural texture generation that includes a description of how to avoid aliasing<sup>[4]</sup>. However they were already pointlessly expensive to generate in the fragment shader since they were always identical for all leaves. It would have been a better idea to bake it once when the program starts or to just put it in a file like a normal texture.
 
 ## References
 1. "Vorocracks" (https://www.shadertoy.com/view/lsVyRy), the basic idea we used for our bark texture.
@@ -129,5 +134,108 @@ The generated leaf texture causes a lot of aliasing artifacts which could probab
 
 4. "Procedural Textures in GLSL" (Stefan Gustavsson, OpenGL Insights), explains how to use perlin and worley noise in shaders.
 
-5. "THE NUMBER OF SPECIES OF INSECT ASSOCIATED WITH
+5. "tsm: A Typescript vector and matrix math library" (https://github.com/tlaukkan/tsm/)
+
+6. "THE NUMBER OF SPECIES OF INSECT ASSOCIATED WITH
 VARIOUS TREES" (T. R. E. Southwood, Department of Zoology, Imperial College, London).
+
+TODO: BREAK PAGE HERE
+
+# Appendix: Different trees and the variables used to create them
+![](normal.png)  
+A normal looking tree.
+```
+CURVE_RES = [6, 0, 0];
+CURVE = [Math.PI / 4, Math.PI / 5, Math.PI / 14];
+CURVE_V = [Math.PI, Math.PI / 1.5, Math.PI / 3];
+SEG_SPLIT = [0.4, 0.4, 0];
+SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
+LENGTH = [4, 0.5, 1];
+SHAPE = Shapes.Cylindrical;
+BASE_SIZE = 1;
+SCALE = 0.6;
+```
+
+![](high_seg_split.png)  
+Using a higher `SEG_SPLIT` value creates a lot more splits
+```
+CURVE_RES = [6, 0, 0];
+CURVE = [Math.PI / 4, Math.PI / 5, Math.PI / 14];
+CURVE_V = [Math.PI, Math.PI / 1.5, Math.PI / 3];
+SEG_SPLIT = [0.6, 0.4, 0];
+SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
+LENGTH = [4, 0.5, 1];
+SHAPE = Shapes.Cylindrical;
+BASE_SIZE = 1;
+SCALE = 0.6;
+```
+
+![](low_split_angle.png)  
+All splits point in the same direction with a low split angle.
+```
+CURVE_RES = [6, 0, 0];
+CURVE = [Math.PI / 4, Math.PI / 5, Math.PI / 14];
+CURVE_V = [Math.PI, Math.PI / 1.5, Math.PI / 3];
+SEG_SPLIT = [0.4, 0.4, 0];
+SPLIT_ANGLE = [Math.PI / 10, Math.PI / 10, Math.PI / 43];
+LENGTH = [4, 0.5, 1];
+SHAPE = Shapes.Cylindrical;
+BASE_SIZE = 1;
+SCALE = 0.6;
+```
+
+![](thin.png)  
+A big `BASE_SIZE` and small `SCALE` the generates a tree with a thin trunk and branches.
+```
+CURVE_RES = [6, 0, 0];
+CURVE = [Math.PI / 4, Math.PI / 5, Math.PI / 14];
+CURVE_V = [Math.PI, Math.PI / 1.5, Math.PI / 3];
+SEG_SPLIT = [0.4, 0.4, 0];
+SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
+LENGTH = [4, 0.5, 1];
+SHAPE = Shapes.Cylindrical;
+BASE_SIZE = 4;
+SCALE = 0.1;
+```
+
+![](thicc.png)  
+And vice versa. A small `BASE_SIZE` and big `SCALE` the generates a tree with a thick trunk and branches.
+```
+CURVE_RES = [6, 0, 0];
+CURVE = [Math.PI / 4, Math.PI / 5, Math.PI / 14];
+CURVE_V = [Math.PI, Math.PI / 1.5, Math.PI / 3];
+SEG_SPLIT = [0.4, 0.4, 0];
+SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
+LENGTH = [4, 0.5, 1];
+SHAPE = Shapes.Cylindrical;
+BASE_SIZE = 0.2;
+SCALE = 3;
+```
+
+![](bumpy.png)  
+If `CURVE_V` is really high, it can create a bumpy mesh because it twists itself.
+```
+let CURVE_RES = [10, 0, 0];
+let CURVE = [Math.PI / 2.1, Math.PI / 5, Math.PI / 14];
+let CURVE_V = [Math.PI * 10, Math.PI / 1.5, Math.PI / 3];
+let SEG_SPLIT = [0.15, 0.4, 0];
+let SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
+let LENGTH = [4, 0.5, 1];
+let SHAPE = Shapes.Cylindrical;
+let BASE_SIZE = 1;
+let SCALE = 0.6;
+```
+
+![](twisting.png)  
+A high `CURVE` and `CURVE_V` can create a tree that twists along its own axis.
+```
+let CURVE_RES = [10, 0, 0];
+let CURVE = [Math.PI * 2, Math.PI / 5, Math.PI / 14];
+let CURVE_V = [Math.PI / 0.3, Math.PI / 1.5, Math.PI / 3];
+let SEG_SPLIT = [0.15, 0.4, 0];
+let SPLIT_ANGLE = [Math.PI / 3, Math.PI / 2, Math.PI / 43];
+let LENGTH = [4, 0.5, 1];
+let SHAPE: Shapes = Shapes.Cylindrical;
+let BASE_SIZE = 1;
+let SCALE = 0.6;
+```
