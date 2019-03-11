@@ -41,7 +41,12 @@ All of this relies upon having a good enough model that ensures the resulting tr
 We wrote the game using WebGL and Typescript which compiles to JavaScript. For the 3D math we found a library called tsm. To load our shader source at the same time as our compiled JavaScript we used the program Webpack to bundle them into a single file. The code was mostly split into two parts: the generation of the abstract tree structure and the generation of a mesh from that tree structure.
 
 ### Tree structure generation
+The model described in the paper written by Weber and Penn (hereafter referred to as the Weber-Penn model) works by defining a large set of variables used to describe the shape of a tree. The original model describes a total of 40 parameters that intermingle according to a complicated set of mathematical formulae in order to angle and position the branches and leaves of a tree to create its final shape. The paper 
 
+
+* CURVE_RES, CURVE, CURVE_BACK, CURVE_V for controlling various angles of a tree's branches.
+* SEG_SPLIT and SPLIT_ANGLE
+* SHAPE which acts as a selector for a function controlling branch length, indirectly affecting the overall shape of the tree.
 
 ### Mesh generation
 The so called segments generated from the tree algorithm were treated as the ends cylinder like parts of the tree's branches. The mesh generation started at the root segment and generated a cylinder shell of triangles to each of its child segments. This algorithm was then executed recursively for each of the children to generate the mesh parts for the grandchildren. Each leaf was generated as two triangles in a quad formation for all the generated leaf locations.
