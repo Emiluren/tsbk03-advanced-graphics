@@ -23,7 +23,6 @@ Tools used, program structure.
 Did you run into any particular problems during the work?
 
 ## Conclusions
-How did it come out? How could it have been done better?
 
 ### Feature creep
 We were sadly not able to completely implement all the features stated in our specification. Problems with implementing the Weber-Penn model meant we had to abandon any shadow-rendering more complicated than that offered by the basic Phong-model used to color our polygons. This naturally meant we also did not have time to implement any of the more advanced features originally listed as optional features, with the exception of procedural textures. The general lack of time left towards the end of the course also lead to a few oversights, such as cut branches leaving holes in the mesh.
